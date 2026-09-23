@@ -52,8 +52,8 @@ class AppointmentController extends StateNotifier<AppointmentState> {
       AppointmentModel(
         id: 'apt-001',
         patientId: 'p-001',
-        patientName: 'Samuel Okafor',
-        startTime: DateTime.now().add(const Duration(days: 1, hours: 2)),
+        patientName: 'Lena Williams',
+        startTime: DateTime.now().add(const Duration(hours: 18)),
         bedId: 'Bed 4',
         frequency: AppointmentFrequency.threeTimesWeekly,
         weekdays: const [1, 3, 5],

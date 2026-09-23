@@ -4,6 +4,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import '../app/constants/app_colors.dart';
 import '../controllers/bed_matrix_controller.dart';
+import '../controllers/appointment_timer_controller.dart';
 import '../models/bed_model.dart';
 import 'admin/admin_active_session_view.dart';
 
@@ -14,6 +15,7 @@ class BedMatrixView extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(bedMatrixControllerProvider);
     final controller = ref.read(bedMatrixControllerProvider.notifier);
+    final appointmentTimers = ref.watch(appointmentTimerControllerProvider);
 
     return Scaffold(
       body: SafeArea(
@@ -66,6 +68,7 @@ class BedMatrixView extends ConsumerWidget {
                   return _AnimatedBedTile(
                     key: ValueKey('${state.filter}-${bed.bedId}'),
                     bed: bed,
+                    workflow: appointmentTimers.forBed(bed.bedId),
                     index: index,
                     onTap: () => _showBedActions(context, ref, bed),
                   );
@@ -293,11 +296,13 @@ class _AnimatedBedTile extends StatefulWidget {
   const _AnimatedBedTile({
     super.key,
     required this.bed,
+    required this.workflow,
     required this.index,
     required this.onTap,
   });
 
   final BedModel bed;
+  final AppointmentTimerSnapshot? workflow;
   final int index;
   final VoidCallback onTap;
 
@@ -351,8 +356,11 @@ class _AnimatedBedTileState extends State<_AnimatedBedTile>
             duration: const Duration(milliseconds: 120),
             child: AnimatedBuilder(
               animation: _alertPulse,
-              builder: (context, _) =>
-                  _BedCard(bed: widget.bed, alertPulse: _alertPulse.value),
+              builder: (context, _) => _BedCard(
+                bed: widget.bed,
+                workflow: widget.workflow,
+                alertPulse: _alertPulse.value,
+              ),
             ),
           ),
         ),
@@ -362,15 +370,22 @@ class _AnimatedBedTileState extends State<_AnimatedBedTile>
 }
 
 class _BedCard extends StatelessWidget {
-  const _BedCard({required this.bed, required this.alertPulse});
+  const _BedCard({
+    required this.bed,
+    required this.workflow,
+    required this.alertPulse,
+  });
 
   final BedModel bed;
+  final AppointmentTimerSnapshot? workflow;
   final double alertPulse;
 
   @override
   Widget build(BuildContext context) {
     final style = _bedStyle(bed.status);
     final isAlert = bed.status == BedStatus.alert;
+    final isPreparing = workflow?.isWithin30Minutes ?? false;
+    final hasOverlap = workflow?.hasOverlap ?? false;
     return AnimatedContainer(
       duration: const Duration(milliseconds: 220),
       padding: EdgeInsets.all(7.r),
@@ -378,16 +393,16 @@ class _BedCard extends StatelessWidget {
         color: style.background,
         borderRadius: BorderRadius.circular(13.r),
         border: Border.all(
-          color: isAlert
+          color: isAlert || isPreparing
               ? Color.lerp(
                   AppColors.secondaryRed,
                   AppColors.lightCoral,
                   alertPulse,
                 )!
               : style.border,
-          width: isAlert ? 1.5 + (alertPulse * 1.5) : 1,
+          width: isAlert || isPreparing ? 1.5 + (alertPulse * 1.5) : 1,
         ),
-        boxShadow: isAlert
+        boxShadow: isAlert || isPreparing
             ? [
                 BoxShadow(
                   color: AppColors.secondaryRed.withValues(
@@ -423,6 +438,26 @@ class _BedCard extends StatelessWidget {
                 fontWeight: FontWeight.w700,
               ),
             ),
+            if (isPreparing)
+              Text(
+                'Preparing Next Patient\n(In 30m)',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: AppColors.secondaryRed,
+                  fontSize: 8.sp,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            if (hasOverlap)
+              Text(
+                '${bed.bedId} active - ${bed.remainingMinutes ?? 30}m\n${bed.patientName}',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: AppColors.primaryDark,
+                  fontSize: 7.sp,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
           ],
         ),
       ),

@@ -6,6 +6,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import '../app/constants/app_colors.dart';
 import '../controllers/queue_matching_controller.dart';
+import '../controllers/appointment_timer_controller.dart';
 import '../controllers/sanitization_controller.dart';
 import '../models/queue_patient_model.dart';
 import '../models/sanitization_task_model.dart';
@@ -111,10 +112,17 @@ class _QueueTab extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(queueMatchingControllerProvider);
+    final appointmentTimers = ref.watch(appointmentTimerControllerProvider);
     return ListView(
       padding: EdgeInsets.fromLTRB(20.w, 8.h, 20.w, 26.h),
       children: [
         _QueueSummary(count: state.waitingPatients.length),
+        if (appointmentTimers.preparingSessions.isNotEmpty) ...[
+          SizedBox(height: 12.h),
+          ...appointmentTimers.preparingSessions.map(
+            (snapshot) => _PreparingQueueAlert(snapshot: snapshot),
+          ),
+        ],
         SizedBox(height: 16.h),
         if (state.waitingPatients.isEmpty)
           _EmptyQueue()
@@ -173,6 +181,60 @@ class _QueueTab extends ConsumerWidget {
           controller.assignBed(patient, bedId);
           Navigator.of(context).pop();
         },
+      ),
+    );
+  }
+}
+
+class _PreparingQueueAlert extends StatelessWidget {
+  const _PreparingQueueAlert({required this.snapshot});
+
+  final AppointmentTimerSnapshot snapshot;
+
+  @override
+  Widget build(BuildContext context) {
+    final bedId = snapshot.appointment.bedId ?? 'Bed pending';
+    final overlap = snapshot.hasOverlap;
+    return Container(
+      margin: EdgeInsets.only(bottom: 8.h),
+      padding: EdgeInsets.all(13.r),
+      decoration: BoxDecoration(
+        color: overlap ? AppColors.secondaryRed : AppColors.white,
+        borderRadius: BorderRadius.circular(15.r),
+        border: Border.all(
+          color: overlap ? AppColors.secondaryRed : AppColors.lightCoral,
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            overlap
+                ? Icons.warning_amber_rounded
+                : Icons.local_shipping_outlined,
+            color: overlap ? AppColors.white : AppColors.primaryDark,
+          ),
+          SizedBox(width: 10.w),
+          Expanded(
+            child: Text(
+              overlap
+                  ? '$bedId currently active - ${snapshot.currentBed!.remainingMinutes ?? 30}m remaining for current patient ${snapshot.currentBed!.patientName}'
+                  : '$bedId · Preparing Next Patient (In 30m)',
+              style: TextStyle(
+                color: overlap ? AppColors.white : AppColors.primaryDark,
+                fontSize: 12.sp,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+          Text(
+            snapshot.countdown,
+            style: TextStyle(
+              color: overlap ? AppColors.softPinkBg : AppColors.secondaryRed,
+              fontSize: 11.sp,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ],
       ),
     );
   }

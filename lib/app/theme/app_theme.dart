@@ -58,15 +58,43 @@ abstract final class AppTheme {
         ),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
-        style: ElevatedButton.styleFrom(
-          backgroundColor: AppColors.primaryDark,
-          foregroundColor: AppColors.white,
-          minimumSize: const Size.fromHeight(54),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14),
-          ),
-          textStyle: const TextStyle(fontWeight: FontWeight.w700),
-        ),
+        style:
+            ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primaryDark,
+              foregroundColor: AppColors.white,
+              minimumSize: const Size.fromHeight(54),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
+              ),
+              textStyle: const TextStyle(fontWeight: FontWeight.w700),
+            ).copyWith(
+              backgroundBuilder: (context, states, child) {
+                final isDisabled = states.contains(WidgetState.disabled);
+                final isPressed = states.contains(WidgetState.pressed);
+
+                return DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        AppColors.primaryDark.withValues(
+                          alpha: isDisabled ? 0.45 : 1,
+                        ),
+                        AppColors.secondaryRed.withValues(
+                          alpha: isDisabled
+                              ? 0.45
+                              : isPressed
+                              ? 0.9
+                              : 1,
+                        ),
+                      ],
+                    ),
+                  ),
+                  child: child,
+                );
+              },
+            ),
       ),
     );
   }

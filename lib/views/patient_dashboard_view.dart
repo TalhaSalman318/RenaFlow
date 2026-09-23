@@ -6,9 +6,9 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import '../app/constants/app_colors.dart';
 import '../controllers/dashboard_controller.dart';
-import '../controllers/ride_alert_controller.dart';
-import '../controllers/session_timer_controller.dart';
 import '../controllers/appointment_controller.dart';
+import '../controllers/appointment_timer_controller.dart';
+import '../controllers/session_timer_controller.dart';
 import '../models/live_session_model.dart';
 import '../models/patient_profile_model.dart';
 import '../services/notification_service.dart';
@@ -60,10 +60,11 @@ class _PatientDashboardViewState extends ConsumerState<PatientDashboardView>
   @override
   Widget build(BuildContext context) {
     final session = ref.watch(dashboardControllerProvider);
-    final ride = ref.watch(rideAlertControllerProvider);
     final notification = ref.watch(notificationServiceProvider);
     final timers = ref.watch(sessionTimerControllerProvider);
     final liveTimer = timers.values.isEmpty ? null : timers.values.first;
+    final appointmentState = ref.watch(appointmentTimerControllerProvider);
+    final upcomingSession = appointmentState.forPatient(widget.profile.name);
 
     return Scaffold(
       body: SafeArea(
@@ -82,27 +83,9 @@ class _PatientDashboardViewState extends ConsumerState<PatientDashboardView>
               SizedBox(height: 10.h),
               _buildPatientDetailsCard(),
               SizedBox(height: 14.h),
-              _buildScheduleCard(liveTimer),
+              _buildScheduleCard(liveTimer, upcomingSession),
               SizedBox(height: 22.h),
               _buildSessionCard(session),
-              SizedBox(height: 18.h),
-              Text(
-                'Live vitals',
-                style: TextStyle(
-                  color: AppColors.primaryDark,
-                  fontSize: 19.sp,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-              SizedBox(height: 10.h),
-              _buildVitalsGrid(session),
-              SizedBox(height: 18.h),
-              SmartRideDepartureAlert(
-                state: ride,
-                onConfirm: ref
-                    .read(rideAlertControllerProvider.notifier)
-                    .confirmPickup,
-              ),
               SizedBox(height: 22.h),
               Text(
                 'Quick actions',
@@ -293,32 +276,52 @@ class _PatientDashboardViewState extends ConsumerState<PatientDashboardView>
     );
   }
 
-  Widget _buildScheduleCard(BedSessionTimer? timer) {
+  Widget _buildScheduleCard(
+    BedSessionTimer? timer,
+    AppointmentTimerSnapshot? appointment,
+  ) {
     final isPaused = timer?.status == SessionTimerStatus.paused;
     final isRunning = timer?.status == SessionTimerStatus.running;
+    final isCountdownVisible = appointment?.isWithin24Hours ?? false;
     final title = isRunning
         ? 'Time remaining: ${_formatTimer(timer!.remainingSeconds)}'
         : isPaused
         ? 'Session paused for clinical review'
+        : isCountdownVisible
+        ? 'Session starts in ${appointment!.countdown}'
         : 'Next session schedule';
     final subtitle = isRunning || isPaused
         ? '${timer!.bedId} · ${isPaused ? 'Nurse paused the session' : 'Live dialysis session'}'
-        : 'Your next recurring slot will appear here.';
+        : appointment == null
+        ? 'Your next recurring slot will appear here.'
+        : '${appointment.appointment.bedId ?? 'Bed pending'} · ${_formatAppointmentDate(appointment.appointment.startTime)}';
+    final cardColor = isPaused
+        ? AppColors.secondaryRed
+        : isCountdownVisible
+        ? AppColors.primaryDark
+        : AppColors.white;
+    final foregroundColor = cardColor == AppColors.white
+        ? AppColors.primaryDark
+        : AppColors.white;
     return AnimatedContainer(
       duration: const Duration(milliseconds: 300),
       padding: EdgeInsets.all(15.r),
       decoration: BoxDecoration(
-        color: isPaused ? AppColors.secondaryRed : AppColors.white,
+        color: cardColor,
         borderRadius: BorderRadius.circular(17.r),
         border: Border.all(
-          color: isPaused ? AppColors.secondaryRed : AppColors.lightCoral,
+          color: isCountdownVisible || isPaused
+              ? AppColors.secondaryRed
+              : AppColors.lightCoral,
         ),
       ),
       child: Row(
         children: [
           Icon(
-            isRunning ? Icons.timer_outlined : Icons.calendar_month_outlined,
-            color: isPaused ? AppColors.white : AppColors.primaryDark,
+            isRunning || isCountdownVisible
+                ? Icons.timer_outlined
+                : Icons.calendar_month_outlined,
+            color: foregroundColor,
             size: 23.r,
           ),
           SizedBox(width: 10.w),
@@ -329,7 +332,7 @@ class _PatientDashboardViewState extends ConsumerState<PatientDashboardView>
                 Text(
                   title,
                   style: TextStyle(
-                    color: isPaused ? AppColors.white : AppColors.primaryDark,
+                    color: foregroundColor,
                     fontSize: 14.sp,
                     fontWeight: FontWeight.w800,
                   ),
@@ -338,9 +341,9 @@ class _PatientDashboardViewState extends ConsumerState<PatientDashboardView>
                 Text(
                   subtitle,
                   style: TextStyle(
-                    color: isPaused
-                        ? AppColors.softPinkBg
-                        : AppColors.mediumPink,
+                    color: foregroundColor.withValues(
+                      alpha: cardColor == AppColors.white ? 1 : 0.78,
+                    ),
                     fontSize: 11.sp,
                   ),
                 ),
@@ -350,6 +353,17 @@ class _PatientDashboardViewState extends ConsumerState<PatientDashboardView>
         ],
       ),
     );
+  }
+
+  String _formatAppointmentDate(DateTime date) {
+    final hour = date.hour == 0
+        ? 12
+        : date.hour > 12
+        ? date.hour - 12
+        : date.hour;
+    final minute = date.minute.toString().padLeft(2, '0');
+    final period = date.hour >= 12 ? 'PM' : 'AM';
+    return '${date.day}/${date.month}/${date.year} at $hour:$minute $period';
   }
 
   String _formatTimer(int seconds) {
@@ -421,47 +435,6 @@ class _PatientDashboardViewState extends ConsumerState<PatientDashboardView>
           ),
         ],
       ),
-    );
-  }
-
-  Widget _buildVitalsGrid(LiveSessionModel session) {
-    return GridView.count(
-      crossAxisCount: 2,
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      crossAxisSpacing: 12.w,
-      mainAxisSpacing: 12.h,
-      childAspectRatio: 1.45,
-      children: [
-        _VitalCard(
-          label: 'Heart rate',
-          value: '${session.heartRate}',
-          unit: 'BPM',
-          icon: Icons.favorite,
-          accent: AppColors.secondaryRed,
-        ),
-        _VitalCard(
-          label: 'Blood pressure',
-          value: session.bloodPressure,
-          unit: 'mmHg',
-          icon: Icons.monitor_heart_outlined,
-          accent: AppColors.primaryDark,
-        ),
-        _VitalCard(
-          label: 'UF rate',
-          value: session.ufRate.toStringAsFixed(2),
-          unit: 'L/hr',
-          icon: Icons.opacity,
-          accent: AppColors.mediumPink,
-        ),
-        _VitalCard(
-          label: 'Session status',
-          value: 'Stable',
-          unit: 'LIVE',
-          icon: Icons.check_circle_outline,
-          accent: AppColors.primaryDark,
-        ),
-      ],
     );
   }
 
@@ -607,280 +580,6 @@ class _ProgressPainter extends CustomPainter {
       oldDelegate.progress != progress ||
       oldDelegate.rotation != rotation ||
       oldDelegate.color != color;
-}
-
-class _VitalCard extends StatelessWidget {
-  const _VitalCard({
-    required this.label,
-    required this.value,
-    required this.unit,
-    required this.icon,
-    required this.accent,
-  });
-
-  final String label;
-  final String value;
-  final String unit;
-  final IconData icon;
-  final Color accent;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: EdgeInsets.all(14.r),
-      decoration: BoxDecoration(
-        color: AppColors.white,
-        borderRadius: BorderRadius.circular(17.r),
-      ),
-      child: Row(
-        children: [
-          _PulseIcon(icon: icon, color: accent),
-          SizedBox(width: 9.w),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: AppColors.mediumPink,
-                    fontSize: 11.sp,
-                  ),
-                ),
-                SizedBox(height: 3.h),
-                FittedBox(
-                  alignment: Alignment.centerLeft,
-                  fit: BoxFit.scaleDown,
-                  child: Row(
-                    children: [
-                      Text(
-                        value,
-                        style: TextStyle(
-                          color: AppColors.primaryDark,
-                          fontSize: 18.sp,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                      SizedBox(width: 4.w),
-                      Text(
-                        unit,
-                        style: TextStyle(
-                          color: AppColors.secondaryRed,
-                          fontSize: 10.sp,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _PulseIcon extends StatefulWidget {
-  const _PulseIcon({required this.icon, required this.color});
-
-  final IconData icon;
-  final Color color;
-
-  @override
-  State<_PulseIcon> createState() => _PulseIconState();
-}
-
-class _PulseIconState extends State<_PulseIcon>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _controller;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1200),
-    )..repeat(reverse: true);
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _controller,
-      builder: (context, _) => Container(
-        height: 34.r,
-        width: 34.r,
-        decoration: BoxDecoration(
-          color: widget.color.withValues(
-            alpha: 0.12 + (_controller.value * 0.1),
-          ),
-          shape: BoxShape.circle,
-        ),
-        child: Icon(widget.icon, color: widget.color, size: 17.r),
-      ),
-    );
-  }
-}
-
-class SmartRideDepartureAlert extends StatefulWidget {
-  const SmartRideDepartureAlert({
-    super.key,
-    required this.state,
-    required this.onConfirm,
-  });
-
-  final RideAlertState state;
-  final VoidCallback onConfirm;
-
-  @override
-  State<SmartRideDepartureAlert> createState() =>
-      _SmartRideDepartureAlertState();
-}
-
-class _SmartRideDepartureAlertState extends State<SmartRideDepartureAlert>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _entryController;
-
-  @override
-  void initState() {
-    super.initState();
-    _entryController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 850),
-    )..forward();
-  }
-
-  @override
-  void dispose() {
-    _entryController.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final confirmed = widget.state.ride.isConfirmed;
-    final minutes = (widget.state.remainingSeconds ~/ 60).toString().padLeft(
-      2,
-      '0',
-    );
-    final seconds = (widget.state.remainingSeconds % 60).toString().padLeft(
-      2,
-      '0',
-    );
-    return SlideTransition(
-      position: Tween<Offset>(begin: const Offset(0, -0.5), end: Offset.zero)
-          .animate(
-            CurvedAnimation(parent: _entryController, curve: Curves.elasticOut),
-          ),
-      child: Container(
-        padding: EdgeInsets.all(16.r),
-        decoration: BoxDecoration(
-          color: confirmed ? AppColors.primaryDark : AppColors.secondaryRed,
-          borderRadius: BorderRadius.circular(20.r),
-          boxShadow: [
-            BoxShadow(
-              color: AppColors.secondaryRed.withValues(alpha: 0.2),
-              blurRadius: 15.r,
-              offset: Offset(0, 7.h),
-            ),
-          ],
-        ),
-        child: Row(
-          children: [
-            Container(
-              height: 45.r,
-              width: 45.r,
-              decoration: BoxDecoration(
-                color: AppColors.white.withValues(alpha: 0.16),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                confirmed ? Icons.check : Icons.local_taxi_outlined,
-                color: AppColors.white,
-                size: 23.r,
-              ),
-            ),
-            SizedBox(width: 12.w),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    confirmed ? 'Pickup confirmed' : 'Smart ride pickup',
-                    style: TextStyle(
-                      color: AppColors.white,
-                      fontSize: 15.sp,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                  SizedBox(height: 4.h),
-                  Text(
-                    confirmed
-                        ? 'Amina has your request.'
-                        : '${widget.state.ride.driverName} · ${widget.state.ride.vehicleNumber}',
-                    style: TextStyle(
-                      color: AppColors.softPinkBg,
-                      fontSize: 11.sp,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                AnimatedContainer(
-                  duration: const Duration(milliseconds: 280),
-                  padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 5.h),
-                  decoration: BoxDecoration(
-                    color: AppColors.white,
-                    borderRadius: BorderRadius.circular(9.r),
-                  ),
-                  child: Text(
-                    confirmed ? 'READY' : '$minutes:$seconds',
-                    style: TextStyle(
-                      color: AppColors.primaryDark,
-                      fontSize: 12.sp,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                ),
-                if (!confirmed) ...[
-                  SizedBox(height: 7.h),
-                  InkWell(
-                    onTap: widget.onConfirm,
-                    borderRadius: BorderRadius.circular(8.r),
-                    child: Padding(
-                      padding: EdgeInsets.all(3.r),
-                      child: Text(
-                        'Confirm',
-                        style: TextStyle(
-                          color: AppColors.white,
-                          fontSize: 11.sp,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 }
 
 class _QuickActionButton extends StatefulWidget {

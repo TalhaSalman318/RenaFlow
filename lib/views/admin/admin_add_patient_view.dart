@@ -19,7 +19,6 @@ class _AdminAddPatientViewState extends ConsumerState<AdminAddPatientView> {
   final _formKey = GlobalKey<FormState>();
   final _name = TextEditingController();
   final _age = TextEditingController();
-  final _medicalId = TextEditingController();
   final _contact = TextEditingController();
   final _emergency = TextEditingController();
   final _dryWeight = TextEditingController();
@@ -33,7 +32,6 @@ class _AdminAddPatientViewState extends ConsumerState<AdminAddPatientView> {
     for (final controller in [
       _name,
       _age,
-      _medicalId,
       _contact,
       _emergency,
       _dryWeight,
@@ -52,7 +50,7 @@ class _AdminAddPatientViewState extends ConsumerState<AdminAddPatientView> {
       name: _name.text.trim(),
       age: int.parse(_age.text),
       gender: _gender,
-      medicalId: _medicalId.text.trim(),
+      medicalId: '',
       dryWeight: double.parse(_dryWeight.text),
       vascularAccess: _vascularAccess,
       baselineBp: _bp.text.trim(),
@@ -116,12 +114,6 @@ class _AdminAddPatientViewState extends ConsumerState<AdminAddPatientView> {
               SizedBox(height: 22.h),
               _section('1  Basic information', [
                 _field(_name, 'Full name', Icons.person_outline),
-                _field(
-                  _medicalId,
-                  'Medical ID (optional)',
-                  Icons.badge_outlined,
-                  required: false,
-                ),
                 Row(
                   children: [
                     Expanded(
