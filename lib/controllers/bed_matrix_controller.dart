@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/bed_model.dart';
+import '../services/bed_service.dart';
 
 enum BedMatrixFilter { all, occupied, vacant, sanitizing }
 
@@ -40,7 +41,24 @@ class BedMatrixState {
 }
 
 class BedMatrixController extends StateNotifier<BedMatrixState> {
-  BedMatrixController() : super(BedMatrixState(beds: _initialBeds));
+  BedMatrixController([this._ref]) : super(BedMatrixState(beds: _initialBeds)) {
+    load();
+  }
+
+  final Ref? _ref;
+
+  Future<void> load() async {
+    if (_ref == null) return;
+    try {
+      final beds = await _ref.read(bedServiceProvider).fetchMatrix();
+      if (mounted && beds.isNotEmpty) state = state.copyWith(beds: beds);
+    } catch (_) {}
+  }
+
+  void applyRemoteBed(Map<String, dynamic> json) {
+    final remote = BedModel.fromJson(json);
+    _updateBed(remote.bedId, (_) => remote);
+  }
 
   static final _initialBeds = List<BedModel>.generate(50, (index) {
     final bedNumber = index + 1;
@@ -48,8 +66,7 @@ class BedMatrixController extends StateNotifier<BedMatrixState> {
       return BedModel(
         bedId: 'Bed $bedNumber',
         status: bedNumber == 4 ? BedStatus.alert : BedStatus.occupied,
-        patientName: bedNumber == 4 ? 'Samuel Okafor' : 'Patient $bedNumber',
-        assignedNurse: 'Nurse ${((bedNumber - 1) % 4) + 1}',
+        assignedNurse: null,
         elapsedMinutes: 65 + (bedNumber * 4),
         remainingMinutes: 240 - (65 + (bedNumber * 4)),
       );
@@ -124,5 +141,5 @@ class BedMatrixController extends StateNotifier<BedMatrixState> {
 
 final bedMatrixControllerProvider =
     StateNotifierProvider<BedMatrixController, BedMatrixState>(
-      (ref) => BedMatrixController(),
+      (ref) => BedMatrixController(ref),
     );

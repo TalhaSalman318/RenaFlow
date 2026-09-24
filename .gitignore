@@ -1,4 +1,7 @@
-# Miscellaneous
+.env
+node_modules/
+logs/
+coverage/# Miscellaneous
 *.class
 *.log
 *.pyc

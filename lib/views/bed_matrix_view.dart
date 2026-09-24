@@ -500,6 +500,12 @@ _BedStyle _bedStyle(BedStatus status) {
       AppColors.secondaryRed,
       Icons.warning_amber_rounded,
     ),
+    BedStatus.delayed => const _BedStyle(
+      AppColors.lightCoral,
+      AppColors.secondaryRed,
+      AppColors.secondaryRed,
+      Icons.hourglass_top_outlined,
+    ),
   };
 }
 
@@ -509,6 +515,7 @@ String _statusLabel(BedStatus status) {
     BedStatus.sanitizing => 'Clean',
     BedStatus.vacant => 'Vacant',
     BedStatus.alert => 'Alert',
+    BedStatus.delayed => 'Delayed',
   };
 }
 
@@ -759,6 +766,7 @@ class _StatusBadge extends StatelessWidget {
       BedStatus.sanitizing => AppColors.mediumPink,
       BedStatus.vacant => AppColors.secondaryRed,
       BedStatus.alert => AppColors.secondaryRed,
+      BedStatus.delayed => AppColors.secondaryRed,
     };
     return Container(
       padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 6.h),

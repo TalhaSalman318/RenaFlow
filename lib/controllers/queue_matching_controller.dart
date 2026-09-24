@@ -63,38 +63,7 @@ class QueueMatchingController extends StateNotifier<QueueMatchingState> {
 
   final Ref _ref;
 
-  static const _initialState = QueueMatchingState(
-    waitingPatients: [
-      QueuePatientModel(
-        patientId: 'PT-1042',
-        name: 'Lena Williams',
-        priorityScore: PatientPriority.high,
-        transportEtaMinutes: 12,
-        vascularAccessType: 'AV Fistula',
-      ),
-      QueuePatientModel(
-        patientId: 'PT-1027',
-        name: 'David Chen',
-        priorityScore: PatientPriority.medium,
-        transportEtaMinutes: 24,
-        vascularAccessType: 'Catheter',
-      ),
-      QueuePatientModel(
-        patientId: 'PT-1038',
-        name: 'Maya Patel',
-        priorityScore: PatientPriority.medium,
-        transportEtaMinutes: 18,
-        vascularAccessType: 'AV Fistula',
-      ),
-      QueuePatientModel(
-        patientId: 'PT-1019',
-        name: 'Owen Brooks',
-        priorityScore: PatientPriority.low,
-        transportEtaMinutes: 35,
-        vascularAccessType: 'Catheter',
-      ),
-    ],
-  );
+  static const _initialState = QueueMatchingState(waitingPatients: []);
 
   List<BedRecommendation> recommendationsFor(QueuePatientModel patient) {
     final beds = _ref.read(bedMatrixControllerProvider).beds;

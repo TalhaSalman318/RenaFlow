@@ -45,35 +45,19 @@ class _SignInViewState extends ConsumerState<SignInView> {
   }
 
   PatientProfileModel _patientProfileFor(String identifier) {
-    final isLena = identifier.trim().toUpperCase() == 'RF-PT-1077';
-    return isLena
-        ? const PatientProfileModel(
-            medicalId: 'RF-PT-1077',
-            name: 'Lena Williams',
-            age: 64,
-            gender: 'Female',
-            assignedBedId: null,
-            vascularAccessType: 'AV Fistula',
-            dryWeight: 68.5,
-            baselineSystolic: 132,
-            baselineDiastolic: 82,
-            emergencyContact: 'Noah Williams · +1 555 0102',
-            nephrologistName: 'Dr. Amina Rahman',
-          )
-        : PatientProfileModel(
-            medicalId: identifier.trim().isEmpty
-                ? 'RF-2026-8941'
-                : identifier.trim(),
-            name: 'RenalFlow Patient',
-            age: 0,
-            gender: 'Not provided',
-            vascularAccessType: 'AV Fistula',
-            dryWeight: 68.5,
-            baselineSystolic: 128,
-            baselineDiastolic: 78,
-            emergencyContact: 'Care team · +1 555 0199',
-            nephrologistName: 'Dr. Amina Rahman',
-          );
+    final user = ref.read(authControllerProvider).user ?? const {};
+    return PatientProfileModel(
+      medicalId: (user['medicalId'] ?? identifier.trim()).toString(),
+      name: (user['displayName'] ?? 'RenalFlow Patient').toString(),
+      age: 0,
+      gender: 'Not provided',
+      vascularAccessType: 'Other',
+      dryWeight: 0,
+      baselineSystolic: 120,
+      baselineDiastolic: 80,
+      emergencyContact: 'Care team',
+      nephrologistName: 'Care team',
+    );
   }
 
   @override
@@ -152,6 +136,16 @@ class _SignInViewState extends ConsumerState<SignInView> {
                   ),
                 ),
                 SizedBox(height: 28.h),
+                if (authState.errorMessage != null) ...[
+                  Text(
+                    authState.errorMessage!,
+                    style: TextStyle(
+                      color: AppColors.secondaryRed,
+                      fontSize: 12.sp,
+                    ),
+                  ),
+                  SizedBox(height: 10.h),
+                ],
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(

@@ -21,6 +21,22 @@ class AppointmentModel {
   final List<int> weekdays;
   final String shift;
 
+  factory AppointmentModel.fromJson(Map<dynamic, dynamic> json) {
+    final start =
+        DateTime.tryParse(json['startsAt']?.toString() ?? '') ?? DateTime.now();
+    final shiftName = json['shift']?.toString() ?? 'morning';
+    return AppointmentModel(
+      id: (json['_id'] ?? json['id']).toString(),
+      patientId: json['patientId'].toString(),
+      patientName: (json['patientName'] ?? 'RenalFlow Patient').toString(),
+      startTime: start,
+      bedId: json['bedId']?.toString(),
+      frequency: AppointmentFrequency.threeTimesWeekly,
+      weekdays: <int>[start.weekday],
+      shift: shiftName,
+    );
+  }
+
   AppointmentModel copyWith({DateTime? startTime, String? bedId}) {
     return AppointmentModel(
       id: id,

@@ -1,12 +1,21 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:rena_flow/controllers/auth_controller.dart';
 import 'package:rena_flow/main.dart';
+import 'package:rena_flow/services/api_service.dart';
 
 void main() {
   testWidgets('shows splash and navigates to sign in', (tester) async {
-    await tester.pumpWidget(const ProviderScope(child: RenalFlowApp()));
+    SharedPreferences.setMockInitialValues({});
+    final preferences = await SharedPreferences.getInstance();
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [sharedPreferencesProvider.overrideWithValue(preferences)],
+        child: const RenalFlowApp(),
+      ),
+    );
 
     expect(find.text('RenalFlow'), findsOneWidget);
 

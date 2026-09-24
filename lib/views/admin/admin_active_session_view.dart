@@ -138,6 +138,7 @@ class AdminActiveSessionView extends ConsumerWidget {
   String _statusLabel(SessionTimerStatus status) => switch (status) {
     SessionTimerStatus.running => 'Session running',
     SessionTimerStatus.paused => 'Paused for clinical review',
+    SessionTimerStatus.delayed => 'Session delayed',
     SessionTimerStatus.completed => 'Session complete',
     SessionTimerStatus.idle => 'Ready to start',
   };

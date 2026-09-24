@@ -4,7 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../controllers/bed_matrix_controller.dart';
 
-enum SessionTimerStatus { idle, running, paused, completed }
+enum SessionTimerStatus { idle, running, paused, delayed, completed }
 
 class BedSessionTimer {
   const BedSessionTimer({
@@ -91,6 +91,42 @@ class SessionTimerController
         delayReason: reason,
       ),
     };
+  }
+
+  void applyRemoteTick(Map<String, dynamic> json) {
+    final bedId = json['bedId']?.toString();
+    if (bedId == null || bedId.isEmpty) return;
+    final current = state[bedId];
+    final status = switch (json['status']?.toString()) {
+      'running' => SessionTimerStatus.running,
+      'paused' => SessionTimerStatus.paused,
+      'delayed' => SessionTimerStatus.delayed,
+      'completed' => SessionTimerStatus.completed,
+      _ => SessionTimerStatus.idle,
+    };
+    state = {
+      ...state,
+      bedId: BedSessionTimer(
+        bedId: bedId,
+        remainingSeconds:
+            (json['remainingSeconds'] as num?)?.toInt() ??
+            current?.remainingSeconds ??
+            0,
+        elapsedSeconds:
+            (json['elapsedSeconds'] as num?)?.toInt() ??
+            current?.elapsedSeconds ??
+            0,
+        delayMinutes:
+            (json['delayMinutes'] as num?)?.toInt() ??
+            current?.delayMinutes ??
+            0,
+        delayReason: json['delayReason'] as String? ?? current?.delayReason,
+        status: status,
+      ),
+    };
+    if (status == SessionTimerStatus.running) {
+      _ref.read(bedMatrixControllerProvider.notifier).setActive(bedId);
+    }
   }
 
   void _setStatus(String bedId, SessionTimerStatus status) {

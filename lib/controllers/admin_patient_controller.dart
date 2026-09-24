@@ -1,8 +1,10 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'dart:async';
 
 import '../models/bed_model.dart';
 import '../models/patient_model.dart';
 import 'bed_matrix_controller.dart';
+import '../services/patient_service.dart';
 
 class AdminPatientState {
   const AdminPatientState({
@@ -38,77 +40,49 @@ class AdminPatientState {
 }
 
 class AdminPatientController extends StateNotifier<AdminPatientState> {
-  AdminPatientController(this._ref) : super(AdminPatientState(patients: _seed));
+  AdminPatientController(this._ref)
+    : super(const AdminPatientState(patients: [])) {
+    unawaited(loadPatients());
+  }
 
   final Ref _ref;
 
-  static const _seed = <PatientModel>[
-    PatientModel(
-      id: 'p-001',
-      name: 'Samuel Okafor',
-      age: 58,
-      gender: 'Male',
-      medicalId: 'RF-PT-1042',
-      dryWeight: 71.8,
-      vascularAccess: 'AV Fistula',
-      baselineBp: '128/78',
-      nephrologist: 'Dr. Amina Rahman',
-      emergencyContact: 'Ada Okafor · +1 555 0101',
-      assignedBedId: 'Bed 4',
-    ),
-    PatientModel(
-      id: 'p-002',
-      name: 'Lena Williams',
-      age: 64,
-      gender: 'Female',
-      medicalId: 'RF-PT-1077',
-      dryWeight: 68.5,
-      vascularAccess: 'AV Fistula',
-      baselineBp: '132/82',
-      nephrologist: 'Dr. Amina Rahman',
-      emergencyContact: 'Noah Williams · +1 555 0102',
-    ),
-    PatientModel(
-      id: 'p-003',
-      name: 'David Chen',
-      age: 46,
-      gender: 'Male',
-      medicalId: 'RF-PT-1027',
-      dryWeight: 74.2,
-      vascularAccess: 'Catheter',
-      baselineBp: '124/76',
-      nephrologist: 'Dr. Marcus Lee',
-      emergencyContact: 'Mei Chen · +1 555 0103',
-    ),
-  ];
+  Future<void> loadPatients() async {
+    try {
+      final patients = await _ref.read(patientServiceProvider).fetchPatients();
+      if (mounted) state = state.copyWith(patients: patients);
+    } catch (_) {}
+  }
+
+  Future<void> refresh() => loadPatients();
 
   void setSearchQuery(String query) {
     state = state.copyWith(searchQuery: query);
   }
 
-  Future<void> addPatient(PatientModel patient) async {
+  Future<PatientCreationResult> createPatient({
+    required String fullName,
+    required String phone,
+    required String gender,
+    required String bloodGroup,
+    required String password,
+  }) async {
     state = state.copyWith(isSaving: true);
-    await Future<void>.delayed(const Duration(milliseconds: 450));
-    final generatedId = patient.medicalId.trim().isEmpty
-        ? 'RF-${DateTime.now().year}-${(1000 + state.patients.length * 731) % 9000}'
-        : patient.medicalId.trim();
-    final savedPatient = PatientModel(
-      id: patient.id,
-      name: patient.name,
-      age: patient.age,
-      gender: patient.gender,
-      medicalId: generatedId,
-      dryWeight: patient.dryWeight,
-      vascularAccess: patient.vascularAccess,
-      baselineBp: patient.baselineBp,
-      nephrologist: patient.nephrologist,
-      emergencyContact: patient.emergencyContact,
-      assignedBedId: patient.assignedBedId,
-    );
-    state = state.copyWith(
-      patients: [...state.patients, savedPatient],
-      isSaving: false,
-    );
+    try {
+      final result = await _ref
+          .read(patientServiceProvider)
+          .createPatient(
+            fullName: fullName,
+            phone: phone,
+            gender: gender,
+            bloodGroup: bloodGroup,
+            password: password,
+          );
+      await refresh();
+      return result;
+    } finally {
+      if (mounted) state = state.copyWith(isSaving: false);
+    }
   }
 
   bool assignToBed(String patientId, String bedId) {

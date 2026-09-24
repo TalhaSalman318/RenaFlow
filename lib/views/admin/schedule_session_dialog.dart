@@ -3,9 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import '../../app/constants/app_colors.dart';
-import '../../controllers/admin_patient_controller.dart';
 import '../../controllers/appointment_controller.dart';
-import '../../models/appointment_model.dart';
 import '../../models/bed_model.dart';
 import '../../models/patient_model.dart';
 import '../../widgets/app_logo_header.dart';
@@ -353,32 +351,30 @@ class _ScheduleSessionDialogState extends ConsumerState<ScheduleSessionDialog> {
   Future<void> _save() async {
     setState(() => _saving = true);
     final selectedBed = _selectedBed!;
-    ref
-        .read(adminPatientControllerProvider.notifier)
-        .assignBedToPatient(widget.patient.id, selectedBed);
-    final now = DateTime.now();
     final shiftHour = _selectedShift!.startsWith('Morning')
         ? 8
         : _selectedShift!.startsWith('Afternoon')
         ? 13
         : 18;
-    ref
-        .read(appointmentControllerProvider.notifier)
-        .addAppointment(
-          AppointmentModel(
-            id: 'apt-${DateTime.now().millisecondsSinceEpoch}',
+    final endHour = shiftHour + 4;
+    try {
+      await ref
+          .read(appointmentControllerProvider.notifier)
+          .schedule(
             patientId: widget.patient.id,
-            patientName: widget.patient.name,
-            startTime: DateTime(now.year, now.month, now.day, shiftHour),
             bedId: selectedBed,
-            frequency: _selectedDays.length >= 3
-                ? AppointmentFrequency.threeTimesWeekly
-                : AppointmentFrequency.twiceWeekly,
-            weekdays: _selectedDays.map(_dayNumber).toList(),
-            shift: _selectedShift!,
-          ),
+            startTimeLocal: '${shiftHour.toString().padLeft(2, '0')}:00',
+            endTimeLocal: '${endHour.toString().padLeft(2, '0')}:00',
+          );
+    } catch (error) {
+      if (mounted) {
+        setState(() => _saving = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Unable to save schedule: $error')),
         );
-    await Future<void>.delayed(const Duration(milliseconds: 280));
+      }
+      return;
+    }
     if (!mounted) return;
     Navigator.pop(context);
     ScaffoldMessenger.of(context).showSnackBar(

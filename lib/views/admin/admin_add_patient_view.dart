@@ -5,6 +5,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../../app/constants/app_colors.dart';
 import '../../controllers/admin_patient_controller.dart';
 import '../../models/patient_model.dart';
+import '../../services/patient_service.dart';
 import '../../widgets/app_logo_header.dart';
 
 class AdminAddPatientView extends ConsumerStatefulWidget {
@@ -20,6 +21,8 @@ class _AdminAddPatientViewState extends ConsumerState<AdminAddPatientView> {
   final _name = TextEditingController();
   final _age = TextEditingController();
   final _contact = TextEditingController();
+  final _password = TextEditingController(text: 'password123');
+  final _bloodGroup = TextEditingController(text: 'Unknown');
   final _emergency = TextEditingController();
   final _dryWeight = TextEditingController();
   final _bp = TextEditingController();
@@ -33,6 +36,8 @@ class _AdminAddPatientViewState extends ConsumerState<AdminAddPatientView> {
       _name,
       _age,
       _contact,
+      _password,
+      _bloodGroup,
       _emergency,
       _dryWeight,
       _bp,
@@ -57,13 +62,33 @@ class _AdminAddPatientViewState extends ConsumerState<AdminAddPatientView> {
       nephrologist: _nephrologist.text.trim(),
       emergencyContact: '${_contact.text.trim()} · ${_emergency.text.trim()}',
     );
-    await ref.read(adminPatientControllerProvider.notifier).addPatient(patient);
+    late final PatientCreationResult result;
+    try {
+      result = await ref
+          .read(adminPatientControllerProvider.notifier)
+          .createPatient(
+            fullName: patient.name,
+            phone: _contact.text.trim(),
+            gender: _gender,
+            bloodGroup: _bloodGroup.text.trim(),
+            password: _password.text,
+          );
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Unable to create patient: $error')),
+        );
+      }
+      return;
+    }
     if (!mounted) return;
     await showDialog<void>(
       context: context,
       builder: (context) => AlertDialog(
         title: const AppLogoHeader(compact: true),
-        content: Text('${patient.name} was added to patient management.'),
+        content: Text(
+          '${patient.name} was added.\n\nMedical ID: ${result.medicalId}\nPassword: ${result.password}',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -140,6 +165,8 @@ class _AdminAddPatientViewState extends ConsumerState<AdminAddPatientView> {
                   Icons.phone_outlined,
                   numeric: true,
                 ),
+                _field(_bloodGroup, 'Blood group', Icons.bloodtype_outlined),
+                _field(_password, 'Temporary password', Icons.lock_outline),
                 _field(
                   _emergency,
                   'Emergency contact',

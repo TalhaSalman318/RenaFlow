@@ -1,4 +1,4 @@
-enum BedStatus { occupied, sanitizing, vacant, alert }
+enum BedStatus { occupied, sanitizing, vacant, alert, delayed }
 
 class BedModel {
   const BedModel({
@@ -16,6 +16,28 @@ class BedModel {
   final String? assignedNurse;
   final int? elapsedMinutes;
   final int? remainingMinutes;
+
+  factory BedModel.fromJson(Map<dynamic, dynamic> json) {
+    final number = json['bedNumber'] ?? json['bedId'] ?? json['_id'];
+    final patient = json['currentPatientId'];
+    final status = switch (json['status'] as String?) {
+      'occupied' => BedStatus.occupied,
+      'sanitizing' => BedStatus.sanitizing,
+      'alert' => BedStatus.alert,
+      'delayed' => BedStatus.delayed,
+      _ => BedStatus.vacant,
+    };
+    return BedModel(
+      bedId: number.toString().startsWith('Bed ')
+          ? number.toString()
+          : 'Bed $number',
+      status: status,
+      patientName: patient is Map ? patient['fullName'] as String? : null,
+      assignedNurse: json['assignedNurseId']?.toString(),
+      elapsedMinutes: json['elapsedMinutes'] as int?,
+      remainingMinutes: json['remainingMinutes'] as int?,
+    );
+  }
 
   BedModel copyWith({
     String? bedId,

@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:rena_flow/app/routes/app_router.dart';
 import 'package:rena_flow/controllers/navigation_controller.dart';
 import 'package:rena_flow/main.dart';
+import 'package:rena_flow/services/api_service.dart';
 import 'package:rena_flow/views/main_shell_view.dart';
 
 void main() {
@@ -26,7 +28,14 @@ void main() {
   });
 
   testWidgets('app starts on splash and routes to sign in', (tester) async {
-    await tester.pumpWidget(const ProviderScope(child: RenalFlowApp()));
+    SharedPreferences.setMockInitialValues({});
+    final preferences = await SharedPreferences.getInstance();
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [sharedPreferencesProvider.overrideWithValue(preferences)],
+        child: const RenalFlowApp(),
+      ),
+    );
 
     expect(find.text('RenalFlow'), findsOneWidget);
     await tester.pump(const Duration(seconds: 3));
