@@ -5,7 +5,6 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../app/constants/app_colors.dart';
 import '../app/routes/app_router.dart';
 import '../controllers/auth_controller.dart';
-import '../models/patient_profile_model.dart';
 import '../widgets/app_logo_header.dart';
 
 class SignInView extends ConsumerStatefulWidget {
@@ -34,30 +33,9 @@ class _SignInViewState extends ConsumerState<SignInView> {
       final role = authState.selectedRole;
       Navigator.of(context).pushReplacementNamed(
         AppRouter.mainShell,
-        arguments: AppLaunchArguments(
-          role: role,
-          profile: role == UserRole.patient
-              ? _patientProfileFor(authState.identifier)
-              : null,
-        ),
+        arguments: AppLaunchArguments(role: role),
       );
     }
-  }
-
-  PatientProfileModel _patientProfileFor(String identifier) {
-    final user = ref.read(authControllerProvider).user ?? const {};
-    return PatientProfileModel(
-      medicalId: (user['medicalId'] ?? identifier.trim()).toString(),
-      name: (user['displayName'] ?? 'RenalFlow Patient').toString(),
-      age: 0,
-      gender: 'Not provided',
-      vascularAccessType: 'Other',
-      dryWeight: 0,
-      baselineSystolic: 120,
-      baselineDiastolic: 80,
-      emergencyContact: 'Care team',
-      nephrologistName: 'Care team',
-    );
   }
 
   @override
@@ -95,16 +73,16 @@ class _SignInViewState extends ConsumerState<SignInView> {
                   ),
                 ),
                 SizedBox(height: 36.h),
-                Text('Email or Medical ID', style: _labelStyle),
+                Text('Medical ID or Email', style: _labelStyle),
                 SizedBox(height: 8.h),
                 TextField(
                   focusNode: _identifierFocusNode,
-                  keyboardType: TextInputType.emailAddress,
+                  keyboardType: TextInputType.text,
                   textInputAction: TextInputAction.next,
                   onChanged: authController.setIdentifier,
                   onSubmitted: (_) => _passwordFocusNode.requestFocus(),
                   decoration: InputDecoration(
-                    hintText: 'Enter email or medical ID',
+                    hintText: 'Enter Medical ID or Email',
                     prefixIcon: const Icon(Icons.badge_outlined),
                     errorText: authState.identifierError,
                   ),

@@ -85,6 +85,45 @@ class AdminPatientController extends StateNotifier<AdminPatientState> {
     }
   }
 
+  Future<PatientModel> updatePatient({
+    required PatientModel patient,
+    required String fullName,
+    required String phone,
+    required String bloodGroup,
+    String notes = '',
+    required String emergencyContactName,
+    required String emergencyContactPhone,
+    required String? assignedBedId,
+  }) async {
+    state = state.copyWith(isSaving: true);
+    try {
+      final updated = await _ref
+          .read(patientServiceProvider)
+          .updatePatient(
+            patient: patient,
+            fullName: fullName,
+            phone: phone,
+            bloodGroup: bloodGroup,
+            notes: notes,
+            emergencyContactName: emergencyContactName,
+            emergencyContactPhone: emergencyContactPhone,
+            assignedBedId: assignedBedId,
+          );
+      if (mounted) {
+        state = state.copyWith(
+          patients: [
+            for (final item in state.patients)
+              if (item.id == updated.id) updated else item,
+          ],
+        );
+        await _ref.read(bedMatrixControllerProvider.notifier).load();
+      }
+      return updated;
+    } finally {
+      if (mounted) state = state.copyWith(isSaving: false);
+    }
+  }
+
   bool assignToBed(String patientId, String bedId) {
     BedModel? bed;
     for (final item in _ref.read(bedMatrixControllerProvider).beds) {

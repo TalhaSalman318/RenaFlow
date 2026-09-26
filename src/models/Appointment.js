@@ -7,7 +7,7 @@ const appointmentSchema = new mongoose.Schema(
     bedId: { type: mongoose.Schema.Types.ObjectId, ref: 'Bed', required: true, index: true },
     startsAt: { type: Date, required: true, index: true },
     endsAt: { type: Date, required: true },
-    shift: { type: String, enum: ['morning', 'afternoon', 'evening'], required: true },
+    shift: { type: String, enum: ['Morning', 'Afternoon', 'Evening'], required: true },
     status: { type: String, enum: ['scheduled', 'preparing_for_pickup', 'patient_notified', 'active', 'completed', 'cancelled'], default: 'scheduled', index: true },
     notification30MinuteSentAt: { type: Date, default: null }
   },

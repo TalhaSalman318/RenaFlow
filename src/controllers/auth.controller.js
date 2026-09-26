@@ -1,5 +1,4 @@
 const jwt = require('jsonwebtoken');
-const mongoose = require('mongoose');
 
 const env = require('../config/env');
 const User = require('../models/User');
@@ -30,8 +29,6 @@ const signAccessToken = user => jwt.sign(
 );
 
 const register = async (req, res, next) => {
-  const session = await mongoose.startSession();
-
   try {
     const {
       medicalId,
@@ -55,30 +52,26 @@ const register = async (req, res, next) => {
       throw validationError('patientProfile is required for patient registration.');
     }
 
-    let createdUser;
-    await session.withTransaction(async () => {
-      const users = await User.create([{
-        medicalId,
-        email,
-        passwordHash: password,
-        role,
-        displayName
-      }], { session });
-      createdUser = users[0];
-
-      if (role === 'patient') {
-        const profiles = await PatientProfile.create([{
-          ...patientProfile,
-          patientId: medicalId,
-          userId: createdUser._id,
-          fullName: patientProfile.fullName || displayName,
-          phone: patientProfile.phone || patientProfile.emergencyContact?.phone || 'Not provided',
-          bloodGroup: patientProfile.bloodGroup || 'Unknown'
-        }], { session });
-        createdUser.patientProfileId = profiles[0]._id;
-        await createdUser.save({ session });
-      }
+    const createdUser = await User.create({
+      medicalId,
+      email,
+      passwordHash: password,
+      role,
+      displayName
     });
+
+    if (role === 'patient') {
+      const profile = await PatientProfile.create({
+        ...patientProfile,
+        patientId: medicalId,
+        userId: createdUser._id,
+        fullName: patientProfile.fullName || displayName,
+        phone: patientProfile.phone || patientProfile.emergencyContact?.phone || 'Not provided',
+        bloodGroup: patientProfile.bloodGroup || 'Unknown'
+      });
+      createdUser.patientProfileId = profile._id;
+      await createdUser.save();
+    }
 
     res.status(201).json({
       success: true,
@@ -92,8 +85,6 @@ const register = async (req, res, next) => {
       error.message = 'A user with that medical ID or email already exists.';
     }
     next(error);
-  } finally {
-    await session.endSession();
   }
 };
 

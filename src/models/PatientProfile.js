@@ -52,6 +52,11 @@ const patientProfileSchema = new mongoose.Schema(
       type: String,
       trim: true
     },
+    notes: {
+      type: String,
+      trim: true,
+      default: ''
+    },
     emergencyContact: {
       name: { type: String, required: true, trim: true },
       phone: { type: String, required: true, trim: true }
@@ -62,7 +67,17 @@ const patientProfileSchema = new mongoose.Schema(
       default: null
     }
   },
-  { timestamps: true }
+  {
+    timestamps: true,
+    toJSON: { virtuals: true },
+    toObject: { virtuals: true }
+  }
 );
+
+patientProfileSchema.virtual('recurringSchedules', {
+  ref: 'RecurringSchedule',
+  localField: '_id',
+  foreignField: 'patientId'
+});
 
 module.exports = mongoose.model('PatientProfile', patientProfileSchema);

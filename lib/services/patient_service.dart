@@ -40,6 +40,34 @@ class PatientService {
         .map((item) => PatientModel.fromJson(item))
         .toList();
   }
+
+  Future<PatientModel> updatePatient({
+    required PatientModel patient,
+    required String fullName,
+    required String phone,
+    required String bloodGroup,
+    String notes = '',
+    required String emergencyContactName,
+    required String emergencyContactPhone,
+    required String? assignedBedId,
+  }) async {
+    final data = await _api.put('/patients/${patient.id}', {
+      'fullName': fullName,
+      'phone': phone,
+      'bloodGroup': bloodGroup,
+      'notes': notes,
+      'emergencyContact': {
+        'name': emergencyContactName,
+        'phone': emergencyContactPhone,
+      },
+      'assignedBedId': assignedBedId?.replaceFirst('Bed ', ''),
+    });
+    final updated = data['patient'];
+    if (updated is! Map) {
+      throw const ApiException('The updated patient was not returned.');
+    }
+    return PatientModel.fromJson(updated);
+  }
 }
 
 class PatientCreationResult {

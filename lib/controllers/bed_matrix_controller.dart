@@ -1,9 +1,10 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/bed_model.dart';
+import '../services/appointment_service.dart';
 import '../services/bed_service.dart';
 
-enum BedMatrixFilter { all, occupied, vacant, sanitizing }
+enum BedMatrixFilter { all, occupied, vacant }
 
 class BedMatrixState {
   const BedMatrixState({required this.beds, this.filter = BedMatrixFilter.all});
@@ -15,22 +16,17 @@ class BedMatrixState {
     return beds.where((bed) {
       return switch (filter) {
         BedMatrixFilter.all => true,
-        BedMatrixFilter.occupied =>
-          bed.status == BedStatus.occupied || bed.status == BedStatus.alert,
+        BedMatrixFilter.occupied => bed.status != BedStatus.vacant,
         BedMatrixFilter.vacant => bed.status == BedStatus.vacant,
-        BedMatrixFilter.sanitizing => bed.status == BedStatus.sanitizing,
       };
     }).toList();
   }
 
   int get occupiedCount =>
-      beds.where((bed) => bed.status == BedStatus.occupied).length;
+      beds.where((bed) => bed.status != BedStatus.vacant).length;
 
   int get vacantCount =>
       beds.where((bed) => bed.status == BedStatus.vacant).length;
-
-  int get sanitizingCount =>
-      beds.where((bed) => bed.status == BedStatus.sanitizing).length;
 
   BedMatrixState copyWith({List<BedModel>? beds, BedMatrixFilter? filter}) {
     return BedMatrixState(
@@ -48,11 +44,53 @@ class BedMatrixController extends StateNotifier<BedMatrixState> {
   final Ref? _ref;
 
   Future<void> load() async {
+    await fetchBedMatrix();
+  }
+
+  Future<void> fetchBedMatrix() async {
     if (_ref == null) return;
     try {
       final beds = await _ref.read(bedServiceProvider).fetchMatrix();
-      if (mounted && beds.isNotEmpty) state = state.copyWith(beds: beds);
+      if (mounted) state = state.copyWith(beds: beds);
     } catch (_) {}
+  }
+
+  Future<void> schedulePatient({
+    required String bedId,
+    required String patientId,
+    required List<int> selectedDays,
+    required String shift,
+  }) async {
+    final shiftName = switch (shift.toLowerCase()) {
+      'morning' => 'Morning',
+      'afternoon' => 'Afternoon',
+      'evening' => 'Evening',
+      _ => throw ArgumentError.value(shift, 'shift', 'Unknown dialysis shift'),
+    };
+    final timeRange = switch (shiftName) {
+      'Morning' => ('08:00', '12:00'),
+      'Afternoon' => ('13:00', '17:00'),
+      _ => ('18:00', '22:00'),
+    };
+
+    await _ref!
+        .read(appointmentServiceProvider)
+        .schedule(
+          patientId: patientId,
+          bedId: bedId,
+          selectedDays: selectedDays,
+          shift: shiftName,
+          startTimeLocal: timeRange.$1,
+          endTimeLocal: timeRange.$2,
+        );
+    await fetchBedMatrix();
+  }
+
+  Future<void> unassignSchedule({required String scheduleId}) async {
+    await _ref!
+        .read(appointmentServiceProvider)
+        .unassign(scheduleId: scheduleId);
+    await fetchBedMatrix();
   }
 
   void applyRemoteBed(Map<String, dynamic> json) {
@@ -71,26 +109,11 @@ class BedMatrixController extends StateNotifier<BedMatrixState> {
         remainingMinutes: 240 - (65 + (bedNumber * 4)),
       );
     }
-    if (bedNumber <= 17) {
-      return BedModel(bedId: 'Bed $bedNumber', status: BedStatus.sanitizing);
-    }
     return BedModel(bedId: 'Bed $bedNumber', status: BedStatus.vacant);
   });
 
   void setFilter(BedMatrixFilter filter) {
     state = state.copyWith(filter: filter);
-  }
-
-  void setSanitizing(String bedId) {
-    _updateBed(
-      bedId,
-      (bed) => bed.copyWith(
-        status: BedStatus.sanitizing,
-        clearPatient: true,
-        clearNurse: true,
-        clearMetrics: true,
-      ),
-    );
   }
 
   void setVacant(String bedId) {
@@ -117,7 +140,30 @@ class BedMatrixController extends StateNotifier<BedMatrixState> {
     required String bedId,
     required String patientName,
     required String assignedNurse,
+    String? shift,
   }) {
+    final updatedShiftSlots = state.beds
+        .firstWhere(
+          (bed) => bed.bedId == bedId,
+          orElse: () => const BedModel(bedId: '', status: BedStatus.vacant),
+        )
+        .shiftSlots
+        .map((slot) {
+          if (shift != null && slot.shift == shift) {
+            return BedShiftSlot(
+              shift: slot.shift,
+              label: slot.label,
+              timeRange: slot.timeRange,
+              status: 'assigned',
+              patientName: patientName.trim(),
+              medicalId: 'PT-NEW',
+              days: const ['Mon'],
+            );
+          }
+          return slot;
+        })
+        .toList();
+
     _updateBed(
       bedId,
       (bed) => bed.copyWith(
@@ -126,6 +172,9 @@ class BedMatrixController extends StateNotifier<BedMatrixState> {
         assignedNurse: assignedNurse.trim(),
         elapsedMinutes: 0,
         remainingMinutes: 240,
+        shiftSlots: updatedShiftSlots.isNotEmpty
+            ? updatedShiftSlots
+            : bed.shiftSlots,
       ),
     );
   }

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import '../../app/constants/app_colors.dart';
+import '../../app/theme/app_theme.dart';
 import '../../controllers/admin_patient_controller.dart';
 import '../../models/patient_model.dart';
 import '../../widgets/app_logo_header.dart';
@@ -45,15 +46,25 @@ class _AdminPatientListViewState extends ConsumerState<AdminPatientListView> {
         child: CustomScrollView(
           slivers: [
             SliverPadding(
-              padding: EdgeInsets.fromLTRB(20.w, 18.h, 20.w, 0),
+              padding: EdgeInsets.fromLTRB(
+                AppSpacing.medium.w,
+                AppSpacing.medium.h,
+                AppSpacing.medium.w,
+                0,
+              ),
               sliver: SliverToBoxAdapter(
-                child: _buildHeader(state, controller),
+                child: _buildHeader(context, state, controller),
               ),
             ),
             SliverPadding(
-              padding: EdgeInsets.fromLTRB(20.w, 18.h, 20.w, 100.h),
+              padding: EdgeInsets.fromLTRB(
+                AppSpacing.medium.w,
+                AppSpacing.medium.h,
+                AppSpacing.medium.w,
+                100.h,
+              ),
               sliver: state.filteredPatients.isEmpty
-                  ? SliverToBoxAdapter(child: _buildEmptyState())
+                  ? SliverToBoxAdapter(child: _buildEmptyState(context))
                   : SliverList(
                       delegate: SliverChildBuilderDelegate(
                         (context, index) => _AnimatedPatientCard(
@@ -73,6 +84,7 @@ class _AdminPatientListViewState extends ConsumerState<AdminPatientListView> {
   }
 
   Widget _buildHeader(
+    BuildContext context,
     AdminPatientState state,
     AdminPatientController controller,
   ) {
@@ -85,23 +97,25 @@ class _AdminPatientListViewState extends ConsumerState<AdminPatientListView> {
             Expanded(
               child: Text(
                 'Patient management',
-                style: TextStyle(
-                  color: AppColors.primaryDark,
-                  fontSize: 26.sp,
-                  fontWeight: FontWeight.w800,
-                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.displaySmall,
               ),
             ),
             Text(
               '${state.patients.length} records',
-              style: TextStyle(color: AppColors.mediumPink, fontSize: 11.sp),
+              style: Theme.of(
+                context,
+              ).textTheme.labelSmall?.copyWith(color: AppColors.mediumPink),
             ),
           ],
         ),
         SizedBox(height: 5.h),
         Text(
           'Profiles, clinical parameters, and bed assignments.',
-          style: TextStyle(color: AppColors.mediumPink, fontSize: 13.sp),
+          style: Theme.of(
+            context,
+          ).textTheme.bodySmall?.copyWith(color: AppColors.mediumPink),
         ),
         SizedBox(height: 18.h),
         TextField(
@@ -126,7 +140,7 @@ class _AdminPatientListViewState extends ConsumerState<AdminPatientListView> {
     );
   }
 
-  Widget _buildEmptyState() {
+  Widget _buildEmptyState(BuildContext context) {
     return Container(
       padding: EdgeInsets.symmetric(vertical: 55.h),
       child: Column(
@@ -139,16 +153,16 @@ class _AdminPatientListViewState extends ConsumerState<AdminPatientListView> {
           SizedBox(height: 12.h),
           Text(
             'No patients found',
-            style: TextStyle(
-              color: AppColors.primaryDark,
-              fontSize: 17.sp,
-              fontWeight: FontWeight.w800,
-            ),
+            style: Theme.of(
+              context,
+            ).textTheme.titleLarge?.copyWith(color: AppColors.primaryDark),
           ),
           SizedBox(height: 5.h),
           Text(
             'Try another name or Medical ID.',
-            style: TextStyle(color: AppColors.mediumPink, fontSize: 12.sp),
+            style: Theme.of(
+              context,
+            ).textTheme.bodySmall?.copyWith(color: AppColors.mediumPink),
           ),
         ],
       ),
@@ -214,10 +228,10 @@ class _AnimatedPatientCardState extends State<_AnimatedPatientCard> {
         offset: _visible ? Offset.zero : const Offset(0, .08),
         duration: const Duration(milliseconds: 380),
         child: Padding(
-          padding: EdgeInsets.only(bottom: 11.h),
+          padding: EdgeInsets.only(bottom: AppSpacing.xsmall.h),
           child: InkWell(
             onTap: widget.onTap,
-            borderRadius: BorderRadius.circular(18.r),
+            borderRadius: BorderRadius.circular(AppRadii.panel.r),
             child: _PatientCard(patient: widget.patient),
           ),
         ),
@@ -234,10 +248,10 @@ class _PatientCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: EdgeInsets.all(15.r),
+      padding: EdgeInsets.all(AppSpacing.medium.r),
       decoration: BoxDecoration(
         color: AppColors.white,
-        borderRadius: BorderRadius.circular(18.r),
+        borderRadius: BorderRadius.circular(AppRadii.panel.r),
         border: Border.all(color: AppColors.lightCoral.withValues(alpha: .55)),
       ),
       child: Row(
@@ -247,7 +261,7 @@ class _PatientCard extends StatelessWidget {
             width: 45.r,
             decoration: BoxDecoration(
               color: AppColors.softPinkBg,
-              borderRadius: BorderRadius.circular(13.r),
+              borderRadius: BorderRadius.circular(AppRadii.card.r),
             ),
             child: const Icon(
               Icons.person_outline,
@@ -261,17 +275,18 @@ class _PatientCard extends StatelessWidget {
               children: [
                 Text(
                   patient.name,
-                  style: TextStyle(
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
                     color: AppColors.primaryDark,
-                    fontSize: 15.sp,
-                    fontWeight: FontWeight.w800,
                   ),
                 ),
                 SizedBox(height: 4.h),
-                Row(
+                Wrap(
+                  spacing: AppSpacing.xsmall.w,
+                  runSpacing: 4.h,
                   children: [
                     _tag(patient.medicalId, AppColors.secondaryRed),
-                    SizedBox(width: 5.w),
                     _tag(patient.vascularAccess, AppColors.mediumPink),
                   ],
                 ),
@@ -283,7 +298,8 @@ class _PatientCard extends StatelessWidget {
                         ? AppColors.mediumPink
                         : AppColors.primaryDark,
                     fontSize: 11.sp,
-                    fontWeight: FontWeight.w700,
+                    height: 1.25,
+                    fontWeight: FontWeight.w500,
                   ),
                 ),
               ],
@@ -304,10 +320,12 @@ class _PatientCard extends StatelessWidget {
       ),
       child: Text(
         text,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
         style: TextStyle(
           color: color,
           fontSize: 9.sp,
-          fontWeight: FontWeight.w800,
+          fontWeight: FontWeight.w500,
         ),
       ),
     );
@@ -323,7 +341,12 @@ class _PatientActionsSheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: EdgeInsets.fromLTRB(20.w, 12.h, 20.w, 25.h),
+      padding: EdgeInsets.fromLTRB(
+        AppSpacing.medium.w,
+        12.h,
+        AppSpacing.medium.w,
+        25.h,
+      ),
       decoration: BoxDecoration(
         color: AppColors.softPinkBg,
         borderRadius: BorderRadius.vertical(top: Radius.circular(25.r)),
@@ -344,15 +367,19 @@ class _PatientActionsSheet extends StatelessWidget {
           SizedBox(height: 10.h),
           Text(
             patient.name,
-            style: TextStyle(
-              color: AppColors.primaryDark,
-              fontSize: 20.sp,
-              fontWeight: FontWeight.w800,
-            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(
+              context,
+            ).textTheme.headlineMedium?.copyWith(color: AppColors.primaryDark),
           ),
           Text(
             '${patient.medicalId} · ${patient.age} years · ${patient.gender}',
-            style: TextStyle(color: AppColors.mediumPink, fontSize: 12.sp),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(
+              context,
+            ).textTheme.bodySmall?.copyWith(color: AppColors.mediumPink),
           ),
           SizedBox(height: 16.h),
           _button(

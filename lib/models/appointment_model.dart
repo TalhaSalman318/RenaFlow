@@ -24,7 +24,13 @@ class AppointmentModel {
   factory AppointmentModel.fromJson(Map<dynamic, dynamic> json) {
     final start =
         DateTime.tryParse(json['startsAt']?.toString() ?? '') ?? DateTime.now();
-    final shiftName = json['shift']?.toString() ?? 'morning';
+    final rawShift = json['shift']?.toString() ?? 'Morning';
+    final shiftName = switch (rawShift.toLowerCase()) {
+      'morning' => 'Morning · 08:00 AM - 12:00 PM',
+      'afternoon' => 'Afternoon · 01:00 PM - 05:00 PM',
+      'evening' => 'Evening · 06:00 PM - 10:00 PM',
+      _ => rawShift,
+    };
     return AppointmentModel(
       id: (json['_id'] ?? json['id']).toString(),
       patientId: json['patientId'].toString(),
@@ -37,11 +43,15 @@ class AppointmentModel {
     );
   }
 
-  AppointmentModel copyWith({DateTime? startTime, String? bedId}) {
+  AppointmentModel copyWith({
+    DateTime? startTime,
+    String? bedId,
+    String? patientName,
+  }) {
     return AppointmentModel(
       id: id,
       patientId: patientId,
-      patientName: patientName,
+      patientName: patientName ?? this.patientName,
       startTime: startTime ?? this.startTime,
       bedId: bedId ?? this.bedId,
       frequency: frequency,

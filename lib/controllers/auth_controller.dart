@@ -90,7 +90,7 @@ class AuthController extends StateNotifier<AuthState> {
 
   bool validate() {
     final identifierError = state.identifier.trim().isEmpty
-        ? 'Email or Medical ID is required'
+        ? 'Medical ID or Email is required'
         : null;
     final passwordError = state.password.isEmpty
         ? 'Password is required'
@@ -157,6 +157,11 @@ class AuthController extends StateNotifier<AuthState> {
       );
       return false;
     }
+  }
+
+  Future<void> logout() async {
+    await _authService?.logout();
+    state = const AuthState();
   }
 }
 

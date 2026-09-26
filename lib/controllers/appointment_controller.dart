@@ -81,10 +81,11 @@ class AppointmentController extends StateNotifier<AppointmentState> {
         appointments: [...state.appointments, ...appointments],
       );
     }
+    await _ref.read(bedMatrixControllerProvider.notifier).load();
     await _ref.read(adminPatientControllerProvider.notifier).refresh();
   }
 
-  String _backendShift(String shift) => shift.split(' · ').first.toLowerCase();
+  String _backendShift(String shift) => shift.split(' · ').first;
 
   static const shifts = [
     'Morning · 08:00 AM - 12:00 PM',
@@ -191,6 +192,17 @@ class AppointmentController extends StateNotifier<AppointmentState> {
   void swapBed(String id, String? bedId) {
     final appointment = state.appointments.firstWhere((item) => item.id == id);
     reschedule(id, appointment.startTime, bedId: bedId);
+  }
+
+  void updatePatientDisplay(String patientId, String fullName) {
+    state = state.copyWith(
+      appointments: [
+        for (final appointment in state.appointments)
+          appointment.patientId == patientId
+              ? appointment.copyWith(patientName: fullName)
+              : appointment,
+      ],
+    );
   }
 }
 

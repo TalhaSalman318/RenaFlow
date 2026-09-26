@@ -23,7 +23,7 @@ void main() {
     await tester.pump();
 
     expect(find.text('Welcome back'), findsOneWidget);
-    expect(find.text('Email or Medical ID'), findsOneWidget);
+    expect(find.text('Medical ID or Email'), findsOneWidget);
     expect(find.text('Sign In'), findsOneWidget);
   });
 
@@ -31,10 +31,10 @@ void main() {
     final controller = AuthController();
 
     expect(controller.validate(), isFalse);
-    expect(controller.state.identifierError, 'Email or Medical ID is required');
+    expect(controller.state.identifierError, 'Medical ID or Email is required');
     expect(controller.state.passwordError, 'Password is required');
 
-    controller.setIdentifier('MED-12345');
+    controller.setIdentifier('PT-2026-0001');
     controller.setPassword('secure-password');
     expect(controller.validate(), isTrue);
 

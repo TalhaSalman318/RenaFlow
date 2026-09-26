@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import '../app/constants/app_colors.dart';
+import '../app/theme/app_theme.dart';
 
 class AppLogoHeader extends StatelessWidget {
   const AppLogoHeader({super.key, this.compact = false, this.showCard = true});
@@ -14,32 +15,33 @@ class AppLogoHeader extends StatelessWidget {
     final logo = Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        CustomPaint(
-          size: Size(compact ? 34.w : 56.w, compact ? 34.w : 56.w),
-          painter: _PulseLogoPainter(),
+        RepaintBoundary(
+          child: CustomPaint(
+            size: Size(compact ? 34.w : 48.w, compact ? 34.w : 48.w),
+            painter: _PulseLogoPainter(),
+          ),
         ),
         SizedBox(width: compact ? 9.w : 13.w),
         Text(
           'RenalFlow',
-          style: TextStyle(
+          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
             color: AppColors.primaryDark,
-            fontSize: compact ? 18.sp : 23.sp,
-            fontWeight: FontWeight.w800,
+            fontSize: compact ? 16.sp : 20.sp,
           ),
         ),
       ],
     );
     if (!showCard) return logo;
     return Container(
-      padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
+      padding: EdgeInsets.all(AppSpacing.medium.r),
       decoration: BoxDecoration(
         color: AppColors.white,
-        borderRadius: BorderRadius.circular(18.r),
+        borderRadius: BorderRadius.circular(AppRadii.panel.r),
         boxShadow: [
           BoxShadow(
             color: AppColors.primaryDark.withValues(alpha: 0.08),
-            blurRadius: 16.r,
-            offset: Offset(0, 6.h),
+            blurRadius: 2.r,
+            offset: Offset(0, 1.h),
           ),
         ],
       ),

@@ -24,12 +24,20 @@ class ApiException implements Exception {
 }
 
 class ApiService {
-  ApiService(this._preferences, {http.Client? client})
-    : _client = client ?? http.Client();
+  ApiService(
+    this._preferences, {
+    http.Client? client,
+    this._onUnauthorized,
+    this._onAuthenticated,
+  }) : _client = client ?? http.Client();
 
   static const tokenKey = 'renalflow_access_token';
   final SharedPreferences _preferences;
   final http.Client _client;
+  final void Function()? _onUnauthorized;
+  final void Function()? _onAuthenticated;
+
+  void resetAuthExpirySignal() => _onAuthenticated?.call();
 
   Future<Map<String, dynamic>> get(
     String path, {
@@ -40,6 +48,9 @@ class ApiService {
     String path, [
     Map<String, dynamic>? body,
   ]) => _request('POST', path, body: body);
+
+  Future<Map<String, dynamic>> put(String path, [Map<String, dynamic>? body]) =>
+      _request('PUT', path, body: body);
 
   Future<Map<String, dynamic>> _request(
     String method,
@@ -62,13 +73,19 @@ class ApiService {
 
     late final http.Response response;
     try {
-      response = method == 'GET'
-          ? await _client.get(uri, headers: headers)
-          : await _client.post(
-              uri,
-              headers: headers,
-              body: jsonEncode(body ?? <String, dynamic>{}),
-            );
+      response = switch (method) {
+        'GET' => await _client.get(uri, headers: headers),
+        'PUT' => await _client.put(
+          uri,
+          headers: headers,
+          body: jsonEncode(body ?? <String, dynamic>{}),
+        ),
+        _ => await _client.post(
+          uri,
+          headers: headers,
+          body: jsonEncode(body ?? <String, dynamic>{}),
+        ),
+      };
     } on SocketException catch (error) {
       debugApiLog('$method $uri -> connection refused/unavailable: $error');
       throw ApiException(
@@ -82,6 +99,13 @@ class ApiService {
     } catch (error) {
       debugApiLog('$method $uri -> transport error: $error');
       throw ApiException('Unable to reach RenalFlow services: $error');
+    }
+
+    if (response.statusCode == 401 &&
+        path != '/auth/login' &&
+        path != '/auth/register') {
+      await _preferences.remove(tokenKey);
+      _onUnauthorized?.call();
     }
 
     Map<String, dynamic> payload;
@@ -114,10 +138,18 @@ class ApiService {
   }
 }
 
+final authSessionExpiredProvider = StateProvider<bool>((ref) => false);
+
 final sharedPreferencesProvider = Provider<SharedPreferences>((ref) {
   throw StateError('SharedPreferences must be overridden in main().');
 });
 
 final apiServiceProvider = Provider<ApiService>(
-  (ref) => ApiService(ref.watch(sharedPreferencesProvider)),
+  (ref) => ApiService(
+    ref.watch(sharedPreferencesProvider),
+    onUnauthorized: () =>
+        ref.read(authSessionExpiredProvider.notifier).state = true,
+    onAuthenticated: () =>
+        ref.read(authSessionExpiredProvider.notifier).state = false,
+  ),
 );

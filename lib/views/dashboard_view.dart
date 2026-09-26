@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import '../app/constants/app_colors.dart';
+import '../app/theme/app_theme.dart';
 import '../models/patient_profile_model.dart';
 
 class DashboardView extends StatelessWidget {
@@ -14,30 +15,28 @@ class DashboardView extends StatelessWidget {
     return Scaffold(
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: EdgeInsets.all(24.r),
+          padding: EdgeInsets.all(AppSpacing.medium.r),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
                 'Good morning',
-                style: TextStyle(color: AppColors.mediumPink, fontSize: 14.sp),
+                style: Theme.of(
+                  context,
+                ).textTheme.bodyMedium?.copyWith(color: AppColors.mediumPink),
               ),
               SizedBox(height: 4.h),
               Text(
                 'Your care dashboard',
-                style: TextStyle(
-                  color: AppColors.primaryDark,
-                  fontSize: 28.sp,
-                  fontWeight: FontWeight.w800,
-                ),
+                style: Theme.of(context).textTheme.displayMedium,
               ),
-              SizedBox(height: 28.h),
+              SizedBox(height: AppSpacing.large.h),
               Container(
                 width: double.infinity,
-                padding: EdgeInsets.all(20.r),
+                padding: EdgeInsets.all(AppSpacing.medium.r),
                 decoration: BoxDecoration(
                   color: AppColors.primaryDark,
-                  borderRadius: BorderRadius.circular(20.r),
+                  borderRadius: BorderRadius.circular(AppRadii.panel.r),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -47,7 +46,7 @@ class DashboardView extends StatelessWidget {
                       style: TextStyle(
                         color: AppColors.white,
                         fontSize: 20.sp,
-                        fontWeight: FontWeight.w800,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
                     SizedBox(height: 8.h),
@@ -56,16 +55,18 @@ class DashboardView extends StatelessWidget {
                       style: TextStyle(
                         color: AppColors.softPinkBg,
                         fontSize: 14.sp,
+                        height: 1.45,
                       ),
                     ),
                   ],
                 ),
               ),
-              SizedBox(height: 20.h),
+              SizedBox(height: AppSpacing.medium.h),
               Row(
                 children: [
                   Expanded(
                     child: _summaryTile(
+                      context,
                       'Dry weight',
                       '${profile.dryWeight} kg',
                       Icons.monitor_weight_outlined,
@@ -74,6 +75,7 @@ class DashboardView extends StatelessWidget {
                   SizedBox(width: 12.w),
                   Expanded(
                     child: _summaryTile(
+                      context,
                       'Baseline BP',
                       '${profile.baselineSystolic}/${profile.baselineDiastolic}',
                       Icons.favorite_border,
@@ -81,13 +83,13 @@ class DashboardView extends StatelessWidget {
                   ),
                 ],
               ),
-              SizedBox(height: 20.h),
+              SizedBox(height: AppSpacing.medium.h),
               Text(
                 'Care team',
                 style: TextStyle(
                   color: AppColors.primaryDark,
                   fontSize: 18.sp,
-                  fontWeight: FontWeight.w800,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
               SizedBox(height: 10.h),
@@ -113,7 +115,12 @@ class DashboardView extends StatelessWidget {
     );
   }
 
-  Widget _summaryTile(String label, String value, IconData icon) {
+  Widget _summaryTile(
+    BuildContext context,
+    String label,
+    String value,
+    IconData icon,
+  ) {
     return Container(
       padding: EdgeInsets.all(16.r),
       decoration: BoxDecoration(
@@ -123,19 +130,23 @@ class DashboardView extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, color: AppColors.secondaryRed, size: 22.r),
-          SizedBox(height: 14.h),
+          Icon(icon, color: AppColors.secondaryRed, size: 20.r),
+          SizedBox(height: AppSpacing.small.h),
           Text(
             label,
-            style: TextStyle(color: AppColors.mediumPink, fontSize: 12.sp),
+            style: Theme.of(
+              context,
+            ).textTheme.labelMedium?.copyWith(color: AppColors.mediumPink),
           ),
           SizedBox(height: 4.h),
           Text(
             value,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
             style: TextStyle(
               color: AppColors.primaryDark,
               fontSize: 17.sp,
-              fontWeight: FontWeight.w800,
+              fontWeight: FontWeight.w600,
             ),
           ),
         ],
@@ -145,15 +156,15 @@ class DashboardView extends StatelessWidget {
 
   Widget _detailRow(IconData icon, String label, String value) {
     return Container(
-      margin: EdgeInsets.only(bottom: 10.h),
-      padding: EdgeInsets.all(14.r),
+      margin: EdgeInsets.only(bottom: AppSpacing.xsmall.h),
+      padding: EdgeInsets.all(AppSpacing.medium.r),
       decoration: BoxDecoration(
         color: AppColors.white,
-        borderRadius: BorderRadius.circular(14.r),
+        borderRadius: BorderRadius.circular(AppRadii.card.r),
       ),
       child: Row(
         children: [
-          Icon(icon, color: AppColors.primaryDark, size: 22.r),
+          Icon(icon, color: AppColors.primaryDark, size: 20.r),
           SizedBox(width: 12.w),
           Expanded(
             child: Column(
@@ -169,10 +180,12 @@ class DashboardView extends StatelessWidget {
                 SizedBox(height: 3.h),
                 Text(
                   value,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     color: AppColors.primaryDark,
                     fontSize: 14.sp,
-                    fontWeight: FontWeight.w700,
+                    fontWeight: FontWeight.w500,
                   ),
                 ),
               ],

@@ -3,8 +3,167 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import '../app/constants/app_colors.dart';
+import '../app/theme/app_theme.dart';
+import '../controllers/patient_portal_controller.dart';
+import '../models/patient_portal_model.dart';
 import '../controllers/session_history_controller.dart';
 import '../models/session_log_model.dart';
+
+class PatientPortalHistoryView extends ConsumerWidget {
+  const PatientPortalHistoryView({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final portal = ref.watch(patientPortalControllerProvider);
+    final sessions = portal.sessions;
+
+    return Scaffold(
+      body: SafeArea(
+        child: CustomScrollView(
+          slivers: [
+            SliverPadding(
+              padding: EdgeInsets.fromLTRB(
+                AppSpacing.medium.w,
+                AppSpacing.medium.h,
+                AppSpacing.medium.w,
+                AppSpacing.medium.h,
+              ),
+              sliver: SliverToBoxAdapter(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Dialysis history',
+                      style: Theme.of(context).textTheme.displaySmall,
+                    ),
+                    SizedBox(height: AppSpacing.xsmall.h),
+                    Text(
+                      'Your sessions and treatment status.',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: AppColors.mediumPink,
+                      ),
+                    ),
+                    SizedBox(height: AppSpacing.medium.h),
+                    if (portal.isHistoryLoading)
+                      const Center(child: CircularProgressIndicator())
+                    else if (portal.historyError != null)
+                      Text(
+                        portal.historyError!,
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: AppColors.secondaryRed,
+                        ),
+                      )
+                    else if (sessions.isEmpty)
+                      Text(
+                        'No dialysis sessions have been recorded yet.',
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: AppColors.mediumPink,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+            if (!portal.isHistoryLoading &&
+                portal.historyError == null &&
+                sessions.isNotEmpty)
+              SliverPadding(
+                padding: EdgeInsets.fromLTRB(
+                  AppSpacing.medium.w,
+                  0,
+                  AppSpacing.medium.w,
+                  AppSpacing.large.h,
+                ),
+                sliver: SliverList(
+                  delegate: SliverChildBuilderDelegate(
+                    (context, index) => _sessionCard(context, sessions[index]),
+                    childCount: sessions.length,
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _sessionCard(BuildContext context, PatientSessionHistoryItem session) {
+    final isCompleted = session.status.toLowerCase() == 'completed';
+    final statusColor = isCompleted
+        ? AppColors.primaryDark
+        : AppColors.secondaryRed;
+    return Container(
+      margin: EdgeInsets.only(bottom: AppSpacing.xsmall.h),
+      padding: EdgeInsets.all(AppSpacing.medium.r),
+      decoration: BoxDecoration(
+        color: AppColors.white,
+        borderRadius: BorderRadius.circular(AppRadii.card.r),
+        border: Border.all(color: AppColors.lightCoral.withValues(alpha: 0.5)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  _formatDate(session.startTime ?? session.endTime),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    color: AppColors.primaryDark,
+                  ),
+                ),
+              ),
+              Text(
+                session.statusLabel,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(
+                  context,
+                ).textTheme.labelSmall?.copyWith(color: statusColor),
+              ),
+            ],
+          ),
+          SizedBox(height: 8.h),
+          Text(
+            'Start ${_formatTime(session.startTime)}  ·  End ${_formatTime(session.endTime)}',
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(
+              context,
+            ).textTheme.bodySmall?.copyWith(color: AppColors.mediumPink),
+          ),
+          if (session.bedId != null) ...[
+            SizedBox(height: 4.h),
+            Text(
+              session.bedId!,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(
+                context,
+              ).textTheme.labelSmall?.copyWith(color: AppColors.primaryDark),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  String _formatDate(DateTime? date) {
+    if (date == null) return 'Date unavailable';
+    final month = date.month.toString().padLeft(2, '0');
+    final day = date.day.toString().padLeft(2, '0');
+    return '$month/$day/${date.year}';
+  }
+
+  String _formatTime(DateTime? date) {
+    if (date == null) return '—';
+    final hour = date.hour.toString().padLeft(2, '0');
+    final minute = date.minute.toString().padLeft(2, '0');
+    return '$hour:$minute';
+  }
+}
 
 class SessionHistoryView extends ConsumerStatefulWidget {
   const SessionHistoryView({super.key});

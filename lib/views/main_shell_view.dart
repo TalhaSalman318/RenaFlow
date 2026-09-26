@@ -3,8 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import '../app/constants/app_colors.dart';
+import '../app/routes/app_router.dart';
+import '../app/theme/app_theme.dart';
+import '../controllers/auth_controller.dart';
 import '../controllers/navigation_controller.dart';
-import '../models/patient_profile_model.dart';
+import '../controllers/patient_portal_controller.dart';
 import '../widgets/app_logo_header.dart';
 import 'admin/admin_patient_list_view.dart';
 import 'bed_matrix_view.dart';
@@ -13,9 +16,8 @@ import 'queue_sanitization_view.dart';
 import 'session_history_view.dart';
 
 class MainShellView extends ConsumerStatefulWidget {
-  const MainShellView({super.key, this.profile, this.initialMode});
+  const MainShellView({super.key, this.initialMode});
 
-  final PatientProfileModel? profile;
   final AppMode? initialMode;
 
   @override
@@ -37,32 +39,25 @@ class _MainShellViewState extends ConsumerState<MainShellView> {
     }
   }
 
-  PatientProfileModel get _fallbackProfile => const PatientProfileModel(
-    vascularAccessType: 'AV Fistula',
-    dryWeight: 68.5,
-    baselineSystolic: 128,
-    baselineDiastolic: 78,
-    emergencyContact: 'Care team · +1 555 0199',
-    nephrologistName: 'Dr. Amina Rahman',
-  );
-
   @override
   Widget build(BuildContext context) {
     final navigation = ref.watch(navigationControllerProvider);
     final controller = ref.read(navigationControllerProvider.notifier);
     final activeMode = widget.initialMode ?? navigation.mode;
     final isPatient = activeMode == AppMode.patient;
+    final patientPortal = isPatient
+        ? ref.watch(patientPortalControllerProvider)
+        : null;
     final tabs = isPatient
         ? <Widget>[
-            PatientDashboardView(profile: widget.profile ?? _fallbackProfile),
-            const SessionHistoryView(),
-            _ProfileView(profile: widget.profile ?? _fallbackProfile),
+            PatientDashboardView(portal: patientPortal!),
+            const PatientPortalHistoryView(),
+            const _ProfileView(),
           ]
         : <Widget>[
             const BedMatrixView(),
             const QueueSanitizationView(),
             const AdminPatientListView(),
-            const _OperationsLogsView(),
           ];
 
     return Scaffold(
@@ -70,22 +65,17 @@ class _MainShellViewState extends ConsumerState<MainShellView> {
         automaticallyImplyLeading: false,
         title: const AppLogoHeader(compact: true, showCard: false),
         actions: [
-          if (!isPatient)
-            PopupMenuButton<AppMode>(
-              tooltip: 'Switch role',
-              icon: const Icon(Icons.swap_horiz),
-              onSelected: controller.switchMode,
-              itemBuilder: (_) => const [
-                PopupMenuItem(
-                  value: AppMode.patient,
-                  child: Text('Patient preview'),
-                ),
-                PopupMenuItem(
-                  value: AppMode.adminNurse,
-                  child: Text('Admin / Nurse view'),
-                ),
-              ],
-            ),
+          IconButton(
+            tooltip: 'Log out',
+            onPressed: () async {
+              await ref.read(authControllerProvider.notifier).logout();
+              if (!context.mounted) return;
+              Navigator.of(
+                context,
+              ).pushNamedAndRemoveUntil(AppRouter.signIn, (_) => false);
+            },
+            icon: const Icon(Icons.logout),
+          ),
           SizedBox(width: 8.w),
         ],
       ),
@@ -130,20 +120,24 @@ class _AnimatedNavigationBar extends StatelessWidget {
             (Icons.grid_view_rounded, 'Beds'),
             (Icons.hub_outlined, 'Flow'),
             (Icons.people_alt_outlined, 'Patients'),
-            (Icons.analytics_outlined, 'Analytics'),
           ];
     return SafeArea(
       child: Container(
-        margin: EdgeInsets.fromLTRB(16.w, 0, 16.w, 10.h),
+        margin: EdgeInsets.fromLTRB(
+          AppSpacing.medium.w,
+          0,
+          AppSpacing.medium.w,
+          10.h,
+        ),
         padding: EdgeInsets.all(6.r),
         decoration: BoxDecoration(
           color: AppColors.primaryDark,
-          borderRadius: BorderRadius.circular(22.r),
+          borderRadius: BorderRadius.circular(AppRadii.panel.r),
           boxShadow: [
             BoxShadow(
               color: AppColors.primaryDark.withValues(alpha: 0.2),
-              blurRadius: 14.r,
-              offset: Offset(0, 5.h),
+              blurRadius: 2.r,
+              offset: Offset(0, 1.h),
             ),
           ],
         ),
@@ -174,11 +168,8 @@ class _AnimatedNavigationBar extends StatelessWidget {
                         SizedBox(height: 3.h),
                         Text(
                           items[itemIndex].$2,
-                          style: TextStyle(
-                            color: AppColors.white,
-                            fontSize: 10.sp,
-                            fontWeight: FontWeight.w700,
-                          ),
+                          style: Theme.of(context).textTheme.labelSmall
+                              ?.copyWith(color: AppColors.white),
                         ),
                       ],
                     ),
@@ -192,72 +183,62 @@ class _AnimatedNavigationBar extends StatelessWidget {
   }
 }
 
-class _ProfileView extends StatelessWidget {
-  const _ProfileView({required this.profile});
-
-  final PatientProfileModel profile;
+class _ProfileView extends ConsumerWidget {
+  const _ProfileView();
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final portal = ref.watch(patientPortalControllerProvider);
+    final profile = portal.profile;
     return ListView(
-      padding: EdgeInsets.all(20.r),
+      padding: EdgeInsets.all(AppSpacing.medium.r),
       children: [
-        const AppLogoHeader(compact: true),
-        SizedBox(height: 22.h),
-        Text(
-          'Your profile',
-          style: TextStyle(
-            color: AppColors.primaryDark,
-            fontSize: 26.sp,
-            fontWeight: FontWeight.w800,
+        if (profile == null && portal.isLoading)
+          const Center(child: CircularProgressIndicator())
+        else if (profile == null)
+          Text(portal.error ?? 'Patient profile is unavailable.')
+        else ...[
+          SizedBox(height: 8.h),
+          Text(
+            'Your profile',
+            style: TextStyle(
+              color: AppColors.primaryDark,
+              fontSize: 26.sp,
+              height: 1.2,
+              fontWeight: FontWeight.w600,
+            ),
           ),
-        ),
-        SizedBox(height: 6.h),
-        Text(
-          'Your care details stay ready when you need them.',
-          style: TextStyle(color: AppColors.mediumPink, fontSize: 13.sp),
-        ),
-        SizedBox(height: 24.h),
-        _profileCard(
-          Icons.medical_information_outlined,
-          'Nephrologist',
-          profile.nephrologistName,
-        ),
-        _profileCard(
-          Icons.hub_outlined,
-          'Vascular access',
-          profile.vascularAccessType,
-        ),
-        _profileCard(
-          Icons.monitor_weight_outlined,
-          'Dry weight',
-          '${profile.dryWeight} kg',
-        ),
-        _profileCard(
-          Icons.favorite_border,
-          'Baseline BP',
-          '${profile.baselineSystolic}/${profile.baselineDiastolic} mmHg',
-        ),
-        _profileCard(
-          Icons.contact_phone_outlined,
-          'Emergency contact',
-          profile.emergencyContact,
-        ),
+          SizedBox(height: 6.h),
+          SizedBox(height: 20.h),
+          _profileCard(Icons.person_outline, 'Name', profile.name),
+          _profileCard(Icons.badge_outlined, 'Medical ID', profile.medicalId),
+          _profileCard(Icons.phone_outlined, 'Phone', profile.phone),
+          _profileCard(
+            Icons.bloodtype_outlined,
+            'Blood group',
+            profile.bloodGroup,
+          ),
+          _profileCard(
+            Icons.bed_outlined,
+            'Assigned bed',
+            profile.assignedBedId ?? 'Unassigned',
+          ),
+        ],
       ],
     );
   }
 
   Widget _profileCard(IconData icon, String label, String value) {
     return Container(
-      margin: EdgeInsets.only(bottom: 10.h),
-      padding: EdgeInsets.all(15.r),
+      margin: EdgeInsets.only(bottom: AppSpacing.xsmall.h),
+      padding: EdgeInsets.all(AppSpacing.medium.r),
       decoration: BoxDecoration(
         color: AppColors.white,
-        borderRadius: BorderRadius.circular(16.r),
+        borderRadius: BorderRadius.circular(AppRadii.panel.r),
       ),
       child: Row(
         children: [
-          Icon(icon, color: AppColors.primaryDark, size: 22.r),
+          Icon(icon, color: AppColors.primaryDark, size: 20.r),
           SizedBox(width: 12.w),
           Expanded(
             child: Column(
@@ -273,6 +254,8 @@ class _ProfileView extends StatelessWidget {
                 SizedBox(height: 3.h),
                 Text(
                   value,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     color: AppColors.primaryDark,
                     fontSize: 14.sp,
@@ -369,91 +352,6 @@ class _PatientManagementView extends StatelessWidget {
             ),
           ),
           const Icon(Icons.chevron_right, color: AppColors.lightCoral),
-        ],
-      ),
-    );
-  }
-}
-
-class _OperationsLogsView extends StatelessWidget {
-  const _OperationsLogsView();
-
-  @override
-  Widget build(BuildContext context) {
-    return ListView(
-      padding: EdgeInsets.all(20.r),
-      children: [
-        Text(
-          'Operations logs',
-          style: TextStyle(
-            color: AppColors.primaryDark,
-            fontSize: 26.sp,
-            fontWeight: FontWeight.w800,
-          ),
-        ),
-        SizedBox(height: 6.h),
-        Text(
-          'A clear operational snapshot for the care team.',
-          style: TextStyle(color: AppColors.mediumPink, fontSize: 13.sp),
-        ),
-        SizedBox(height: 24.h),
-        _logCard(
-          Icons.check_circle_outline,
-          'All systems stable',
-          'Live monitoring is active',
-          AppColors.primaryDark,
-        ),
-        _logCard(
-          Icons.cleaning_services_outlined,
-          'Sanitization protocol',
-          '3 beds in turnaround',
-          AppColors.mediumPink,
-        ),
-        _logCard(
-          Icons.people_outline,
-          'Queue matching',
-          '4 patients awaiting placement',
-          AppColors.secondaryRed,
-        ),
-      ],
-    );
-  }
-
-  Widget _logCard(IconData icon, String title, String subtitle, Color color) {
-    return Container(
-      margin: EdgeInsets.only(bottom: 12.h),
-      padding: EdgeInsets.all(16.r),
-      decoration: BoxDecoration(
-        color: AppColors.white,
-        borderRadius: BorderRadius.circular(17.r),
-      ),
-      child: Row(
-        children: [
-          Icon(icon, color: color, size: 24.r),
-          SizedBox(width: 12.w),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: TextStyle(
-                    color: AppColors.primaryDark,
-                    fontSize: 14.sp,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                SizedBox(height: 4.h),
-                Text(
-                  subtitle,
-                  style: TextStyle(
-                    color: AppColors.mediumPink,
-                    fontSize: 12.sp,
-                  ),
-                ),
-              ],
-            ),
-          ),
         ],
       ),
     );

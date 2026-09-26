@@ -2,6 +2,8 @@
 node_modules/
 logs/
 coverage/# Miscellaneous
+.wwebjs_auth/
+.wwebjs_cache/
 *.class
 *.log
 *.pyc

@@ -25,6 +25,11 @@ class SocketService {
     );
     _socket.on('bed:status-changed', _onBedChanged);
     _socket.on('session:tick', _onSessionTick);
+    _socket.on('timer_tick', _onSessionTick);
+    _socket.on('session_started', _onSessionTick);
+    _socket.on('session_paused', _onSessionTick);
+    _socket.on('session_resumed', _onSessionTick);
+    _socket.on('session_stopped', _onSessionTick);
     _socket.on('appointment:pre-session-alert', _onPreSessionAlert);
     _socket.connect();
   }
@@ -69,6 +74,7 @@ class SocketService {
 }
 
 final socketServiceProvider = Provider<SocketService?>((ref) {
+  ref.watch(authControllerProvider);
   String? token;
   try {
     token = ref.watch(sharedPreferencesProvider).getString(ApiService.tokenKey);
@@ -76,7 +82,6 @@ final socketServiceProvider = Provider<SocketService?>((ref) {
     return null;
   }
   if (token == null || token.isEmpty) return null;
-  ref.watch(authControllerProvider);
   final service = SocketService(ref, token);
   ref.onDispose(service.dispose);
   return service;

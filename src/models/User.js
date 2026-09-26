@@ -40,6 +40,14 @@ const userSchema = new mongoose.Schema(
       required: true,
       trim: true
     },
+    fullName: {
+      type: String,
+      trim: true
+    },
+    phone: {
+      type: String,
+      trim: true
+    },
     isActive: {
       type: Boolean,
       default: true,

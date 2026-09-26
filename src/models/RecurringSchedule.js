@@ -9,7 +9,7 @@ const recurringScheduleSchema = new mongoose.Schema(
       required: true,
       validate: { validator: days => days.length > 0 && new Set(days).size === days.length, message: 'selectedDays must contain unique days from 1 to 7' }
     },
-    shift: { type: String, enum: ['morning', 'afternoon', 'evening'], required: true },
+    shift: { type: String, enum: ['Morning', 'Afternoon', 'Evening'], required: true },
     startTimeLocal: { type: String, required: true, match: /^([01]\d|2[0-3]):[0-5]\d$/ },
     endTimeLocal: { type: String, required: true, match: /^([01]\d|2[0-3]):[0-5]\d$/ },
     status: { type: String, enum: ['active', 'cancelled'], default: 'active', index: true }

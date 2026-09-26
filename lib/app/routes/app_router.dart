@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../../controllers/auth_controller.dart';
-import '../../models/patient_profile_model.dart';
 import '../../controllers/navigation_controller.dart';
 import '../../views/main_shell_view.dart';
 import '../../views/onboarding_medical_profile_view.dart';
@@ -10,13 +9,14 @@ import '../../views/splash_view.dart';
 import '../../widgets/app_logo_header.dart';
 
 class AppLaunchArguments {
-  const AppLaunchArguments({required this.role, this.profile});
+  const AppLaunchArguments({required this.role});
 
   final UserRole role;
-  final PatientProfileModel? profile;
 }
 
 abstract final class AppRouter {
+  static final navigatorKey = GlobalKey<NavigatorState>();
+
   static const splash = '/';
   static const signIn = '/sign-in';
   static const onboarding = '/onboarding';
@@ -36,14 +36,12 @@ abstract final class AppRouter {
   static Widget _buildMainShell(Object? arguments) {
     if (arguments is AppLaunchArguments) {
       return MainShellView(
-        profile: arguments.profile,
         initialMode: arguments.role == UserRole.admin
             ? AppMode.adminNurse
             : AppMode.patient,
       );
     }
     return MainShellView(
-      profile: arguments is PatientProfileModel ? arguments : null,
       initialMode: arguments is UserRole && arguments == UserRole.admin
           ? AppMode.adminNurse
           : AppMode.patient,

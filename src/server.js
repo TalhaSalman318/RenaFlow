@@ -10,6 +10,7 @@ const seedBeds = require('./utils/seedBeds');
 const seedAdmin = require('./utils/seedAdmin');
 const { registerBedSocket } = require('./sockets/bed.socket');
 const { registerSessionSocket } = require('./sockets/session.socket');
+const { initializeWhatsApp } = require('./services/whatsapp.service');
 
 const PORT = process.env.PORT || env.port || 4000;
 
@@ -22,6 +23,9 @@ const startServer = async () => {
     logger.info('Bed seed completed', seedResult);
     const adminSeedResult = await seedAdmin();
     logger.info('Default admin seed completed', adminSeedResult);
+    initializeWhatsApp().catch(error => {
+      logger.error('Unable to initialize WhatsApp client', { error: error.message, stack: error.stack });
+    });
     server = http.createServer(app);
     const io = new Server(server, {
       cors: { origin: env.corsOrigins.includes('*') ? true : env.corsOrigins, credentials: !env.corsOrigins.includes('*') }

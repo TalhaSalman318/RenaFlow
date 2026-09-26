@@ -5,19 +5,16 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import '../app/constants/app_colors.dart';
-import '../controllers/dashboard_controller.dart';
-import '../controllers/appointment_controller.dart';
-import '../controllers/appointment_timer_controller.dart';
+import '../app/theme/app_theme.dart';
 import '../controllers/session_timer_controller.dart';
-import '../models/live_session_model.dart';
 import '../models/patient_profile_model.dart';
-import '../services/notification_service.dart';
-import 'session_history_view.dart';
+import '../controllers/patient_portal_controller.dart';
+import '../models/patient_portal_model.dart';
 
 class PatientDashboardView extends ConsumerStatefulWidget {
-  const PatientDashboardView({super.key, required this.profile});
+  const PatientDashboardView({super.key, required this.portal});
 
-  final PatientProfileModel profile;
+  final PatientPortalState portal;
 
   @override
   ConsumerState<PatientDashboardView> createState() =>
@@ -28,27 +25,15 @@ class _PatientDashboardViewState extends ConsumerState<PatientDashboardView>
     with SingleTickerProviderStateMixin {
   late final AnimationController _progressRotation;
 
+  PatientProfileModel get _profile => widget.portal.profile!;
+
   @override
   void initState() {
     super.initState();
     _progressRotation = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 10),
-    )..repeat();
-    Future<void>.microtask(() {
-      if (!mounted) return;
-      final appointments = ref.read(appointmentControllerProvider).appointments;
-      if (appointments.isNotEmpty) {
-        final appointment = appointments.first;
-        ref
-            .read(notificationServiceProvider.notifier)
-            .schedulePreSessionAlert(
-              patientName: widget.profile.medicalId,
-              sessionStart: appointment.startTime,
-              bedId: appointment.bedId ?? 'assigned bed',
-            );
-      }
-    });
+    );
   }
 
   @override
@@ -59,44 +44,48 @@ class _PatientDashboardViewState extends ConsumerState<PatientDashboardView>
 
   @override
   Widget build(BuildContext context) {
-    final session = ref.watch(dashboardControllerProvider);
-    final notification = ref.watch(notificationServiceProvider);
-    final timers = ref.watch(sessionTimerControllerProvider);
-    final liveTimer = timers.values.isEmpty ? null : timers.values.first;
-    final appointmentState = ref.watch(appointmentTimerControllerProvider);
-    final upcomingSession = appointmentState.forPatient(widget.profile.name);
-
+    if (widget.portal.profile == null) {
+      return Scaffold(
+        body: Center(
+          child: widget.portal.isLoading
+              ? const CircularProgressIndicator()
+              : Text(widget.portal.error ?? 'Patient profile is unavailable.'),
+        ),
+      );
+    }
     return Scaffold(
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: EdgeInsets.fromLTRB(20.w, 20.h, 20.w, 28.h),
+          padding: EdgeInsets.fromLTRB(16.w, 16.h, 16.w, 24.h),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildHeader(),
-              if (notification.isVisible) ...[
-                SizedBox(height: 14.h),
-                _buildReminder(notification.message!),
-              ],
+              _buildHeader(context),
               SizedBox(height: 14.h),
-              _buildPatientIdCard(),
+              _buildPatientIdCard(context),
               SizedBox(height: 10.h),
-              _buildPatientDetailsCard(),
+              _buildPatientDetailsCard(context),
               SizedBox(height: 14.h),
-              _buildScheduleCard(liveTimer, upcomingSession),
+              _buildScheduleCard(context, widget.portal.schedules),
               SizedBox(height: 22.h),
-              _buildSessionCard(session),
-              SizedBox(height: 22.h),
-              Text(
-                'Quick actions',
-                style: TextStyle(
-                  color: AppColors.primaryDark,
-                  fontSize: 19.sp,
-                  fontWeight: FontWeight.w800,
-                ),
+              Consumer(
+                builder: (context, ref, _) {
+                  final liveTimer = ref.watch(
+                    sessionTimerControllerProvider.select((timers) {
+                      for (final timer in timers.values) {
+                        if ((timer.patientId == _profile.id ||
+                                timer.patientMedicalId == _profile.medicalId) &&
+                            timer.status != SessionTimerStatus.completed &&
+                            timer.status != SessionTimerStatus.idle) {
+                          return timer;
+                        }
+                      }
+                      return null;
+                    }),
+                  );
+                  return _buildSessionCard(liveTimer);
+                },
               ),
-              SizedBox(height: 10.h),
-              _buildQuickActions(),
             ],
           ),
         ),
@@ -104,7 +93,7 @@ class _PatientDashboardViewState extends ConsumerState<PatientDashboardView>
     );
   }
 
-  Widget _buildHeader() {
+  Widget _buildHeader(BuildContext context) {
     return Row(
       children: [
         Expanded(
@@ -113,15 +102,17 @@ class _PatientDashboardViewState extends ConsumerState<PatientDashboardView>
             children: [
               Text(
                 'Good morning',
-                style: TextStyle(color: AppColors.mediumPink, fontSize: 13.sp),
+                style: Theme.of(
+                  context,
+                ).textTheme.bodySmall?.copyWith(color: AppColors.mediumPink),
               ),
               SizedBox(height: 4.h),
               Text(
-                'Your care dashboard',
-                style: TextStyle(
+                'Welcome, ${_profile.name}',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.displaySmall?.copyWith(
                   color: AppColors.primaryDark,
-                  fontSize: 25.sp,
-                  fontWeight: FontWeight.w800,
                 ),
               ),
             ],
@@ -145,13 +136,13 @@ class _PatientDashboardViewState extends ConsumerState<PatientDashboardView>
     );
   }
 
-  Widget _buildPatientIdCard() {
+  Widget _buildPatientIdCard(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: EdgeInsets.all(15.r),
+      padding: EdgeInsets.all(AppSpacing.medium.r),
       decoration: BoxDecoration(
         color: AppColors.white,
-        borderRadius: BorderRadius.circular(17.r),
+        borderRadius: BorderRadius.circular(AppRadii.panel.r),
       ),
       child: Row(
         children: [
@@ -166,15 +157,17 @@ class _PatientDashboardViewState extends ConsumerState<PatientDashboardView>
                   style: TextStyle(
                     color: AppColors.mediumPink,
                     fontSize: 11.sp,
+                    height: 1.25,
+                    fontWeight: FontWeight.w500,
                   ),
                 ),
                 SizedBox(height: 3.h),
                 Text(
-                  widget.profile.medicalId,
+                  _profile.medicalId,
                   style: TextStyle(
                     color: AppColors.primaryDark,
                     fontSize: 16.sp,
-                    fontWeight: FontWeight.w800,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ],
@@ -185,43 +178,37 @@ class _PatientDashboardViewState extends ConsumerState<PatientDashboardView>
     );
   }
 
-  Widget _buildPatientDetailsCard() {
+  Widget _buildPatientDetailsCard(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: EdgeInsets.all(15.r),
+      padding: EdgeInsets.all(AppSpacing.medium.r),
       decoration: BoxDecoration(
         color: AppColors.white,
-        borderRadius: BorderRadius.circular(17.r),
+        borderRadius: BorderRadius.circular(AppRadii.panel.r),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            widget.profile.name,
+            'Personal details',
             style: TextStyle(
               color: AppColors.primaryDark,
-              fontSize: 16.sp,
-              fontWeight: FontWeight.w800,
+              fontSize: 15.sp,
+              fontWeight: FontWeight.w600,
             ),
-          ),
-          SizedBox(height: 5.h),
-          Text(
-            widget.profile.age == 0
-                ? widget.profile.gender
-                : '${widget.profile.age} years · ${widget.profile.gender}',
-            style: TextStyle(color: AppColors.mediumPink, fontSize: 12.sp),
           ),
           SizedBox(height: 10.h),
           Wrap(
             spacing: 8.w,
             runSpacing: 6.h,
             children: [
-              _detailTag('Dry ${widget.profile.dryWeight} kg'),
-              _detailTag(widget.profile.vascularAccessType),
+              _detailTag(context, 'Name: ${_profile.name}'),
+              _detailTag(context, 'Phone: ${_profile.phone}'),
+              _detailTag(context, 'Blood group: ${_profile.bloodGroup}'),
               _detailTag(
-                'BP ${widget.profile.baselineSystolic}/${widget.profile.baselineDiastolic}',
+                context,
+                'Assigned bed: ${_profile.assignedBedId ?? 'Unassigned'}',
               ),
-              _detailTag(widget.profile.assignedBedId ?? 'Bed pending'),
             ],
           ),
         ],
@@ -229,7 +216,7 @@ class _PatientDashboardViewState extends ConsumerState<PatientDashboardView>
     );
   }
 
-  Widget _detailTag(String text) {
+  Widget _detailTag(BuildContext context, String text) {
     return Container(
       padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 5.h),
       decoration: BoxDecoration(
@@ -238,150 +225,95 @@ class _PatientDashboardViewState extends ConsumerState<PatientDashboardView>
       ),
       child: Text(
         text,
-        style: TextStyle(
-          color: AppColors.secondaryRed,
-          fontSize: 10.sp,
-          fontWeight: FontWeight.w700,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildReminder(String message) {
-    return Container(
-      padding: EdgeInsets.all(14.r),
-      decoration: BoxDecoration(
-        color: AppColors.primaryDark,
-        borderRadius: BorderRadius.circular(16.r),
-      ),
-      child: Row(
-        children: [
-          const Icon(
-            Icons.notifications_active_outlined,
-            color: AppColors.white,
-          ),
-          SizedBox(width: 10.w),
-          Expanded(
-            child: Text(
-              message,
-              style: TextStyle(
-                color: AppColors.white,
-                fontSize: 12.sp,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
-        ],
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: Theme.of(
+          context,
+        ).textTheme.labelSmall?.copyWith(color: AppColors.secondaryRed),
       ),
     );
   }
 
   Widget _buildScheduleCard(
-    BedSessionTimer? timer,
-    AppointmentTimerSnapshot? appointment,
+    BuildContext context,
+    List<PatientPortalSchedule> schedules,
   ) {
-    final isPaused = timer?.status == SessionTimerStatus.paused;
-    final isRunning = timer?.status == SessionTimerStatus.running;
-    final isCountdownVisible = appointment?.isWithin24Hours ?? false;
-    final title = isRunning
-        ? 'Time remaining: ${_formatTimer(timer!.remainingSeconds)}'
-        : isPaused
-        ? 'Session paused for clinical review'
-        : isCountdownVisible
-        ? 'Session starts in ${appointment!.countdown}'
-        : 'Next session schedule';
-    final subtitle = isRunning || isPaused
-        ? '${timer!.bedId} · ${isPaused ? 'Nurse paused the session' : 'Live dialysis session'}'
-        : appointment == null
-        ? 'Your next recurring slot will appear here.'
-        : '${appointment.appointment.bedId ?? 'Bed pending'} · ${_formatAppointmentDate(appointment.appointment.startTime)}';
-    final cardColor = isPaused
-        ? AppColors.secondaryRed
-        : isCountdownVisible
-        ? AppColors.primaryDark
-        : AppColors.white;
-    final foregroundColor = cardColor == AppColors.white
-        ? AppColors.primaryDark
-        : AppColors.white;
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 300),
-      padding: EdgeInsets.all(15.r),
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.all(AppSpacing.medium.r),
       decoration: BoxDecoration(
-        color: cardColor,
-        borderRadius: BorderRadius.circular(17.r),
-        border: Border.all(
-          color: isCountdownVisible || isPaused
-              ? AppColors.secondaryRed
-              : AppColors.lightCoral,
-        ),
+        color: AppColors.white,
+        borderRadius: BorderRadius.circular(AppRadii.panel.r),
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(
-            isRunning || isCountdownVisible
-                ? Icons.timer_outlined
-                : Icons.calendar_month_outlined,
-            color: foregroundColor,
-            size: 23.r,
-          ),
-          SizedBox(width: 10.w),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: TextStyle(
-                    color: foregroundColor,
-                    fontSize: 14.sp,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                SizedBox(height: 3.h),
-                Text(
-                  subtitle,
-                  style: TextStyle(
-                    color: foregroundColor.withValues(
-                      alpha: cardColor == AppColors.white ? 1 : 0.78,
-                    ),
-                    fontSize: 11.sp,
-                  ),
-                ),
-              ],
+          Text(
+            'Assigned dialysis days',
+            style: TextStyle(
+              color: AppColors.primaryDark,
+              fontSize: 15.sp,
+              fontWeight: FontWeight.w600,
             ),
           ),
+          SizedBox(height: 10.h),
+          if (schedules.isEmpty)
+            Text(
+              'No recurring dialysis schedule is assigned.',
+              style: Theme.of(
+                context,
+              ).textTheme.bodySmall?.copyWith(color: AppColors.mediumPink),
+            )
+          else
+            ...schedules.map(
+              (schedule) => Padding(
+                padding: EdgeInsets.only(bottom: 10.h),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '${schedule.assignedDays} · ${schedule.shift}',
+                      style: TextStyle(
+                        color: AppColors.primaryDark,
+                        fontSize: 13.sp,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    SizedBox(height: 3.h),
+                    Text(
+                      '${schedule.startTime} - ${schedule.endTime} · ${schedule.bedId ?? _profile.assignedBedId ?? 'Bed pending'}',
+                      style: TextStyle(
+                        color: AppColors.mediumPink,
+                        fontSize: 11.sp,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
         ],
       ),
     );
-  }
-
-  String _formatAppointmentDate(DateTime date) {
-    final hour = date.hour == 0
-        ? 12
-        : date.hour > 12
-        ? date.hour - 12
-        : date.hour;
-    final minute = date.minute.toString().padLeft(2, '0');
-    final period = date.hour >= 12 ? 'PM' : 'AM';
-    return '${date.day}/${date.month}/${date.year} at $hour:$minute $period';
   }
 
   String _formatTimer(int seconds) {
     return '${(seconds ~/ 3600).toString().padLeft(2, '0')}:${((seconds % 3600) ~/ 60).toString().padLeft(2, '0')}:${(seconds % 60).toString().padLeft(2, '0')}';
   }
 
-  Widget _buildSessionCard(LiveSessionModel session) {
+  Widget _buildSessionCard(BedSessionTimer? timer) {
+    final progress = timer?.completionPercentage ?? 0;
+    final paused = timer?.status == SessionTimerStatus.paused;
     return Container(
       width: double.infinity,
-      padding: EdgeInsets.all(20.r),
+      padding: EdgeInsets.all(AppSpacing.medium.r),
       decoration: BoxDecoration(
         color: AppColors.primaryDark,
-        borderRadius: BorderRadius.circular(24.r),
+        borderRadius: BorderRadius.circular(AppRadii.panel.r),
         boxShadow: [
           BoxShadow(
             color: AppColors.primaryDark.withValues(alpha: 0.2),
-            blurRadius: 18.r,
-            offset: Offset(0, 8.h),
+            blurRadius: 2.r,
+            offset: Offset(0, 1.h),
           ),
         ],
       ),
@@ -390,7 +322,7 @@ class _PatientDashboardViewState extends ConsumerState<PatientDashboardView>
           AnimatedBuilder(
             animation: _progressRotation,
             builder: (context, _) => _SessionProgress(
-              progress: session.completionPercentage,
+              progress: progress,
               rotation: _progressRotation.value,
             ),
           ),
@@ -400,35 +332,53 @@ class _PatientDashboardViewState extends ConsumerState<PatientDashboardView>
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Dialysis session',
+                  timer == null
+                      ? 'No active dialysis session'
+                      : paused
+                      ? 'Dialysis session'
+                      : 'Dialysis in progress',
                   style: TextStyle(
                     color: AppColors.white,
                     fontSize: 18.sp,
                     fontWeight: FontWeight.w800,
                   ),
                 ),
+                if (paused)
+                  Padding(
+                    padding: EdgeInsets.only(top: 6.h, bottom: 2.h),
+                    child: Container(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: 9.w,
+                        vertical: 5.h,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppColors.softPinkBg,
+                        borderRadius: BorderRadius.circular(4.r),
+                      ),
+                      child: Text(
+                        'Dialysis Paused',
+                        style: TextStyle(
+                          color: AppColors.primaryDark,
+                          fontSize: 11.sp,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ),
                 SizedBox(height: 8.h),
                 Text(
-                  '${_formatDuration(session.elapsedTime)} of ${_formatDuration(session.totalDuration)}',
+                  timer == null
+                      ? 'Your live countdown will appear when treatment starts.'
+                      : '${_formatTimer(timer.remainingSeconds)} remaining · ${_formatTimer(timer.elapsedSeconds)} elapsed',
                   style: TextStyle(
                     color: AppColors.softPinkBg,
                     fontSize: 13.sp,
                   ),
                 ),
                 SizedBox(height: 12.h),
-                Row(
-                  children: [
-                    Icon(
-                      Icons.water_drop_outlined,
-                      color: AppColors.lightCoral,
-                      size: 17.r,
-                    ),
-                    SizedBox(width: 5.w),
-                    Text(
-                      '${session.bloodFlowRate} mL/min',
-                      style: TextStyle(color: AppColors.white, fontSize: 12.sp),
-                    ),
-                  ],
+                Text(
+                  timer?.bedId ?? 'No bed session active',
+                  style: TextStyle(color: AppColors.white, fontSize: 12.sp),
                 ),
               ],
             ),
@@ -436,47 +386,6 @@ class _PatientDashboardViewState extends ConsumerState<PatientDashboardView>
         ],
       ),
     );
-  }
-
-  Widget _buildQuickActions() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        _QuickActionButton(
-          icon: Icons.emergency_outlined,
-          label: 'Emergency',
-          onTap: () => _showActionMessage('Emergency help is ready.'),
-        ),
-        _QuickActionButton(
-          icon: Icons.chat_bubble_outline,
-          label: 'Nephrologist',
-          onTap: () => _showActionMessage('Opening nephrologist chat.'),
-        ),
-        _QuickActionButton(
-          icon: Icons.receipt_long_outlined,
-          label: 'Session logs',
-          onTap: _openSessionHistory,
-        ),
-      ],
-    );
-  }
-
-  void _showActionMessage(String message) {
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(message)));
-  }
-
-  void _openSessionHistory() {
-    Navigator.of(
-      context,
-    ).push(MaterialPageRoute<void>(builder: (_) => const SessionHistoryView()));
-  }
-
-  String _formatDuration(Duration duration) {
-    final hours = duration.inHours;
-    final minutes = duration.inMinutes.remainder(60).toString().padLeft(2, '0');
-    return '$hours:$minutes';
   }
 }
 
@@ -580,70 +489,4 @@ class _ProgressPainter extends CustomPainter {
       oldDelegate.progress != progress ||
       oldDelegate.rotation != rotation ||
       oldDelegate.color != color;
-}
-
-class _QuickActionButton extends StatefulWidget {
-  const _QuickActionButton({
-    required this.icon,
-    required this.label,
-    required this.onTap,
-  });
-
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
-
-  @override
-  State<_QuickActionButton> createState() => _QuickActionButtonState();
-}
-
-class _QuickActionButtonState extends State<_QuickActionButton> {
-  bool _pressed = false;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTapDown: (_) => setState(() => _pressed = true),
-      onTapUp: (_) {
-        setState(() => _pressed = false);
-        widget.onTap();
-      },
-      onTapCancel: () => setState(() => _pressed = false),
-      child: AnimatedScale(
-        scale: _pressed ? 0.92 : 1,
-        duration: const Duration(milliseconds: 130),
-        child: SizedBox(
-          width: 100.w,
-          child: Column(
-            children: [
-              Container(
-                height: 48.r,
-                width: 48.r,
-                decoration: BoxDecoration(
-                  color: AppColors.white,
-                  borderRadius: BorderRadius.circular(15.r),
-                ),
-                child: Icon(
-                  widget.icon,
-                  color: AppColors.primaryDark,
-                  size: 22.r,
-                ),
-              ),
-              SizedBox(height: 7.h),
-              Text(
-                widget.label,
-                textAlign: TextAlign.center,
-                maxLines: 2,
-                style: TextStyle(
-                  color: AppColors.secondaryRed,
-                  fontSize: 11.sp,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
 }

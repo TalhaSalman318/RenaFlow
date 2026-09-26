@@ -35,16 +35,24 @@ class AuthService {
     if (token == null || user == null) {
       throw const ApiException('The login response was incomplete.');
     }
-    await _preferences.setString(ApiService.tokenKey, token);
-    return AuthSession(user: user, accessToken: token);
+    final accessToken = token.trim();
+    if (accessToken.isEmpty) {
+      throw const ApiException(
+        'The login response contained an invalid token.',
+      );
+    }
+    await _preferences.setString(ApiService.tokenKey, accessToken);
+    _api.resetAuthExpirySignal();
+    return AuthSession(user: user, accessToken: accessToken);
   }
 
   Future<AuthSession> register(Map<String, dynamic> body) async {
     final data = await _api.post('/auth/register', body);
     final user = (data['user'] as Map<dynamic, dynamic>?)
         ?.cast<String, dynamic>();
-    if (user == null)
+    if (user == null) {
       throw const ApiException('The registration response was incomplete.');
+    }
     return AuthSession(user: user, accessToken: '');
   }
 

@@ -55,6 +55,10 @@ class AppointmentService {
         .map((item) => AppointmentModel.fromJson(item))
         .toList();
   }
+
+  Future<void> unassign({required String scheduleId}) async {
+    await _api.post('/appointments/unassign', {'scheduleId': scheduleId});
+  }
 }
 
 final appointmentServiceProvider = Provider<AppointmentService>(
