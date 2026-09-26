@@ -12,7 +12,17 @@ const initializeWhatsApp = () => {
     authStrategy: new LocalAuth({ clientId: 'renalflow' }),
     puppeteer: {
       headless: true,
-      args: ['--no-sandbox', '--disable-setuid-sandbox'],
+      // Linux/WSL par Chromium ka exact path:
+      executablePath: '/usr/bin/chromium-browser',
+      args: [
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage',
+        '--disable-accelerated-2d-canvas',
+        '--no-first-run',
+        '--no-zygote',
+        '--disable-gpu'
+      ],
     },
   });
 

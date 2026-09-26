@@ -9,7 +9,7 @@ import 'notification_service.dart';
 
 const socketBaseUrl = String.fromEnvironment(
   'SOCKET_URL',
-  defaultValue: 'http://localhost:4000',
+  defaultValue: backendBaseUrl,
 );
 
 class SocketService {

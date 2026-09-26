@@ -6,7 +6,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'network_error.dart';
 
-const defaultApiBaseUrl = 'http://localhost:4000/api/v1';
+const backendBaseUrl = 'http://YOUR_EC2_PUBLIC_IP:5000';
+const defaultApiBaseUrl = '$backendBaseUrl/api/v1';
 const configuredApiBaseUrl = String.fromEnvironment('API_BASE_URL');
 final apiBaseUrl = configuredApiBaseUrl.isEmpty
     ? defaultApiBaseUrl
