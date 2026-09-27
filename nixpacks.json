@@ -1,0 +1,11 @@
+{
+  "providers": ["node"],
+  "pkgs": [
+    "chromium",
+    "nss",
+    "freetype",
+    "harfbuzz",
+    "ca-certificates",
+    "ttf-freefont"
+  ]
+}

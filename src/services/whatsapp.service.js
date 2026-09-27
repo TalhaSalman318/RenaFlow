@@ -8,12 +8,11 @@ let readyPromise;
 const initializeWhatsApp = () => {
   if (readyPromise) return readyPromise;
 
-  client = new Client({
+client = new Client({
     authStrategy: new LocalAuth({ clientId: 'renalflow' }),
     puppeteer: {
       headless: true,
-      // Linux/WSL par Chromium ka exact path:
-      executablePath: '/usr/bin/chromium-browser',
+      executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || '/usr/bin/google-chrome' || '/usr/bin/chromium-browser' || '/usr/bin/chromium',
       args: [
         '--no-sandbox',
         '--disable-setuid-sandbox',
@@ -48,6 +47,9 @@ const initializeWhatsApp = () => {
 
   return readyPromise;
 };
+
+
+
 
 const send30MinAlert = async (phone, fullName, bedNumber) => {
   const recipientPhone = String(phone || '').replace(/\D/g, '');
