@@ -6,7 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'network_error.dart';
 
-const backendBaseUrl = 'http://YOUR_EC2_PUBLIC_IP:5000';
+const backendBaseUrl = 'renaflow-production.up.railway.app';
 const defaultApiBaseUrl = '$backendBaseUrl/api/v1';
 const configuredApiBaseUrl = String.fromEnvironment('API_BASE_URL');
 final apiBaseUrl = configuredApiBaseUrl.isEmpty
@@ -90,12 +90,12 @@ class ApiService {
     } on SocketException catch (error) {
       debugApiLog('$method $uri -> connection refused/unavailable: $error');
       throw ApiException(
-        'Unable to connect to RenalFlow at $apiBaseUrl. Ensure the backend is running on port 4000.',
+        'Unable to connect to RenalFlow at $apiBaseUrl. Check your network connection and API URL.',
       );
     } on http.ClientException catch (error) {
       debugApiLog('$method $uri -> HTTP client connection error: $error');
       throw ApiException(
-        'Unable to connect to RenalFlow at $apiBaseUrl. Ensure the backend is running on port 4000.',
+        'Unable to connect to RenalFlow at $apiBaseUrl. Check your network connection and API URL.',
       );
     } catch (error) {
       debugApiLog('$method $uri -> transport error: $error');

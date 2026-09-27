@@ -20,6 +20,7 @@ void main() {
       var loginIdentifier = '';
       final client = MockClient((request) async {
         if (request.url.path.endsWith('/auth/login')) {
+          expect(request.url.scheme, 'https');
           final body = jsonDecode(request.body) as Map<String, dynamic>;
           loginIdentifier = body['identifier'] as String;
           return http.Response(
